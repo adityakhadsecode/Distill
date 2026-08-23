@@ -29,6 +29,8 @@
   - `VaultWriter/` (`IVaultWriter`, `ObsidianVaultWriterStub`)
 - [x] Added `Distill.App` WinUI 3 desktop application with `appsettings.json`, `app.manifest`, `MainViewModel` MVVM logic, and full `Microsoft.Extensions.DependencyInjection` container wiring in `App.xaml.cs`.
 - [x] Created `Distill.Tests` test suite with unit tests verifying pipeline stubs, frontmatter formatting, and settings loading.
+- [x] Configured GitHub Actions [.github/workflows/dotnet-desktop.yml](file:///e:/Coding/Projects/local-first%20Instagram%20%E2%86%92%20Obsidian%20knowledge%20extraction/.github/workflows/dotnet-desktop.yml) for .NET 8 WinUI 3 CI build, test, and release artifact publishing.
+- [x] Created public GitHub repository and synced all branches at [https://github.com/adityakhadsecode/Distill](https://github.com/adityakhadsecode/Distill).
 
 ---
 
@@ -73,3 +75,4 @@
 
 - Solution and 3 projects created cleanly.
 - Dependency injection configured in `App.xaml.cs` with full MVVM bindings in `MainViewModel.cs` and `MainWindow.xaml`.
+- Remote GitHub repo completely synced with `main`.
