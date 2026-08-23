@@ -19,4 +19,17 @@ public class WindowsMediaOcrExtractorStub : ITextExtractor
         _logger?.LogInformation("Executing WindowsMediaOcrExtractorStub on image: {ImagePath}", imagePath);
         return Task.FromResult($"[OCR Extracted Text Stub for: {Path.GetFileName(imagePath)}]");
     }
+
+    public async Task<IReadOnlyDictionary<string, string>> ExtractTextFromMultipleAsync(
+        IEnumerable<string> imagePaths,
+        CancellationToken cancellationToken = default)
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in imagePaths)
+        {
+            dict[path] = await ExtractTextAsync(path, cancellationToken).ConfigureAwait(false);
+        }
+
+        return dict;
+    }
 }

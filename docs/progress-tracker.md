@@ -27,19 +27,21 @@
 - [x] Defined concrete domain result types: `PostDownloadResult` and `ReelDownloadResult` with explicit `Cleanup()` lifecycle management.
 - [x] Added domain exceptions: `PrivateMediaException`, `RateLimitException`, `MediaNotFoundException`, `DistillDownloadException`.
 - [x] Added unit test suite with `FakeProcessRunner` verifying Post downloads, Reel demuxing/sampling, fallback frame sampling, exception handling, and cleanup.
+- [x] Implemented native `WindowsMediaOcrExtractor` using `Windows.Media.Ocr.OcrEngine` with user profile language loading, reading order sorting, and parallel batch processing (`ExtractTextFromMultipleAsync`).
+- [x] Added `OcrLanguageNotInstalledException` with actionable Windows settings instructions.
+- [x] Added unit tests in `WindowsMediaOcrExtractorTests`.
 
 ---
 
 ## In Progress
 
-- Phase 2 Engine Implementations (OCR, STT, LLM).
+- Phase 2 Engine Implementations (STT & LLM formatting).
 
 ---
 
 ## Next Up
 
 - **Phase 2 (Continued)**:
-  - Implement native `WindowsMediaOcrExtractor` utilizing WinRT `Windows.Media.Ocr.OcrEngine`.
   - Implement `WhisperCppTranscriber` wrapping `whisper-cli.exe`.
   - Implement `OllamaNoteFormatter` calling `http://localhost:11434/api/generate` with prompt templates.
   - Implement `ObsidianVaultWriter` with robust frontmatter formatting and collision resolution.
@@ -65,10 +67,12 @@
   - *Rationale*: Direct `.md` file writing requires no Obsidian community plugin installation and immediately works with Obsidian's live filesystem watcher, accompanied by `obsidian://` URI deep links.
 - **Decision 4: Explicit Cleanup Model on DownloadResult**
   - *Rationale*: `DownloadResult` implements `IDisposable` with a non-automatic `Cleanup()` method, allowing downstream pipeline stages (OCR, STT) to safely access intermediate images and audio files before explicitly purging the working directory.
+- **Decision 5: Native WinRT OCR with Vertical Band Sorting**
+  - *Rationale*: `Windows.Media.Ocr` runs in-process with hardware acceleration and no external dependencies. Sorting detected word bounding boxes into vertical bands preserves natural human reading flow across Instagram carousels and infographic slides.
 
 ---
 
 ## Session Notes
 
-- `YtDlpReelDownloader` implemented and registered in DI container.
-- Unit tests written using `FakeProcessRunner`.
+- `WindowsMediaOcrExtractor` implemented and wired to DI.
+- Unit tests added in `WindowsMediaOcrExtractorTests.cs`.

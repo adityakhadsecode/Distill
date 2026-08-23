@@ -81,10 +81,10 @@ public partial class MainViewModel : ObservableObject
             if (downloadResult is PostDownloadResult postResult)
             {
                 mediaType = "instagram_post";
-                foreach (var img in postResult.ImageFilePaths)
+                var ocrBatch = await _textExtractor.ExtractTextFromMultipleAsync(postResult.ImageFilePaths, cancellationToken);
+                foreach (var imgPath in postResult.ImageFilePaths)
                 {
-                    var text = await _textExtractor.ExtractTextAsync(img, cancellationToken);
-                    if (!string.IsNullOrWhiteSpace(text))
+                    if (ocrBatch.TryGetValue(imgPath, out var text) && !string.IsNullOrWhiteSpace(text))
                     {
                         ocrSegments.Add(text);
                     }
@@ -93,10 +93,10 @@ public partial class MainViewModel : ObservableObject
             else if (downloadResult is ReelDownloadResult reelResult)
             {
                 mediaType = "instagram_reel";
-                foreach (var frame in reelResult.FrameFilePaths)
+                var ocrBatch = await _textExtractor.ExtractTextFromMultipleAsync(reelResult.FrameFilePaths, cancellationToken);
+                foreach (var framePath in reelResult.FrameFilePaths)
                 {
-                    var text = await _textExtractor.ExtractTextAsync(frame, cancellationToken);
-                    if (!string.IsNullOrWhiteSpace(text))
+                    if (ocrBatch.TryGetValue(framePath, out var text) && !string.IsNullOrWhiteSpace(text))
                     {
                         ocrSegments.Add(text);
                     }
