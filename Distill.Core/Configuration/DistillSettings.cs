@@ -23,7 +23,22 @@ public class DistillSettings
     public string OllamaEndpoint { get; set; } = "http://localhost:11434";
 
     /// <summary>
-    /// Path to the whisper.cpp binary (e.g. whisper-cli.exe).
+    /// Path to the whisper.cpp binary (e.g. whisper-cli.exe). If empty, looks in tools/ or PATH.
     /// </summary>
     public string WhisperBinaryPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Path to the whisper model binary (e.g., "models/ggml-base.en.bin", "models/ggml-small.en.bin").
+    /// </summary>
+    public string WhisperModelPath { get; set; } = "models/ggml-base.en.bin";
+
+    /// <summary>
+    /// Number of CPU threads to allocate for whisper transcription.
+    /// </summary>
+    public int WhisperThreadCount { get; set; } = 4;
+
+    /// <summary>
+    /// Spoken language hint for whisper transcription (default: "en" or "auto").
+    /// </summary>
+    public string WhisperLanguage { get; set; } = "en";
 }

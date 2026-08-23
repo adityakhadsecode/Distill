@@ -29,20 +29,20 @@
 - [x] Added unit test suite with `FakeProcessRunner` verifying Post downloads, Reel demuxing/sampling, fallback frame sampling, exception handling, and cleanup.
 - [x] Implemented native `WindowsMediaOcrExtractor` using `Windows.Media.Ocr.OcrEngine` with user profile language loading, reading order sorting, and parallel batch processing (`ExtractTextFromMultipleAsync`).
 - [x] Added `OcrLanguageNotInstalledException` with actionable Windows settings instructions.
-- [x] Added unit tests in `WindowsMediaOcrExtractorTests`.
+- [x] Implemented `WhisperCppTranscriber` wrapping `whisper-cli.exe` with settings-based model path, thread count, language hints, timestamp stripping, diagnostic filtering, and graceful silent audio handling.
+- [x] Added unit test suite in `Distill.Tests/WhisperCppTranscriberTests.cs`.
 
 ---
 
 ## In Progress
 
-- Phase 2 Engine Implementations (STT & LLM formatting).
+- Phase 2 Engine Implementations (LLM formatting & Obsidian Vault writing).
 
 ---
 
 ## Next Up
 
 - **Phase 2 (Continued)**:
-  - Implement `WhisperCppTranscriber` wrapping `whisper-cli.exe`.
   - Implement `OllamaNoteFormatter` calling `http://localhost:11434/api/generate` with prompt templates.
   - Implement `ObsidianVaultWriter` with robust frontmatter formatting and collision resolution.
 
@@ -50,10 +50,8 @@
 
 ## Open Questions & Considerations
 
-1. **Whisper.cpp Execution Mode**: Use pre-compiled standalone CLI executable (`whisper-cli.exe` called via subprocess) vs C# P/Invoke native DLL bindings (`whisper.net`).
-   - *Recommendation*: Subprocess CLI execution matches `yt-dlp` and `ffmpeg` execution patterns with clean memory isolation.
-2. **Default Ollama Model Selection**: Default to `llama3.2:3b` for fast, lightweight denoising on consumer laptops, with simple settings UI dropdown to switch to `qwen2.5:7b` or `llama3.1:8b`.
-3. **Instagram Cookie Handling**: Provide an optional settings input to specify browser or cookies file for `yt-dlp` to handle age-restricted reels.
+1. **Default Ollama Model Selection**: Default to `llama3.2:3b` for fast, lightweight denoising on consumer laptops, with simple settings UI dropdown to switch to `qwen2.5:7b` or `llama3.1:8b`.
+2. **Instagram Cookie Handling**: Provide an optional settings input to specify browser or cookies file for `yt-dlp` to handle age-restricted reels.
 
 ---
 
@@ -69,10 +67,12 @@
   - *Rationale*: `DownloadResult` implements `IDisposable` with a non-automatic `Cleanup()` method, allowing downstream pipeline stages (OCR, STT) to safely access intermediate images and audio files before explicitly purging the working directory.
 - **Decision 5: Native WinRT OCR with Vertical Band Sorting**
   - *Rationale*: `Windows.Media.Ocr` runs in-process with hardware acceleration and no external dependencies. Sorting detected word bounding boxes into vertical bands preserves natural human reading flow across Instagram carousels and infographic slides.
+- **Decision 6: Non-Throwing Graceful Transcriber Fallback**
+  - *Rationale*: If audio is silent, corrupt, or whisper is not installed, `WhisperCppTranscriber` returns an empty string rather than throwing, allowing OCR-only synthesis to complete the note.
 
 ---
 
 ## Session Notes
 
-- `WindowsMediaOcrExtractor` implemented and wired to DI.
-- Unit tests added in `WindowsMediaOcrExtractorTests.cs`.
+- `WhisperCppTranscriber` implemented and registered in DI container.
+- Unit tests added in `WhisperCppTranscriberTests.cs`.

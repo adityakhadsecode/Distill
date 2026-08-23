@@ -78,7 +78,7 @@ public partial class App : Application
         // Core Pipeline Services
         services.AddSingleton<IReelDownloader, YtDlpReelDownloader>();
         services.AddSingleton<ITextExtractor, WindowsMediaOcrExtractor>();
-        services.AddSingleton<ITranscriber, WhisperCppTranscriberStub>();
+        services.AddSingleton<ITranscriber, WhisperCppTranscriber>();
         services.AddSingleton<INoteFormatter, OllamaNoteFormatterStub>();
         services.AddSingleton<IVaultWriter, ObsidianVaultWriterStub>();
 
