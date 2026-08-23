@@ -7,7 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Distill.Core.Downloaders;
 
 /// <summary>
-/// Downloads Instagram Reels and Posts using yt-dlp, direct HTTP image fetching, and extracts audio/frames with ffmpeg.
+/// Downloads Instagram Reels and Posts using yt-dlp metadata inspection, direct HTTP image fetching,
+/// and extracts audio/frames with ffmpeg.
 /// </summary>
 public class YtDlpReelDownloader : IReelDownloader
 {
@@ -35,28 +36,38 @@ public class YtDlpReelDownloader : IReelDownloader
             throw new ArgumentException("Instagram URL cannot be null or empty.", nameof(url));
         }
 
-        var isReel = url.Contains("/reel/", StringComparison.OrdinalIgnoreCase) ||
-                     url.Contains("/reels/", StringComparison.OrdinalIgnoreCase);
-
         var workingDir = Path.Combine(Path.GetTempPath(), "Distill", "Downloads", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(workingDir);
-
-        _logger?.LogInformation("Starting download for URL: {Url} (Type: {Type}) in {Dir}", 
-            url, isReel ? "Reel" : "Post", workingDir);
 
         var ytDlpPath = _toolLocator.ResolveToolPath("yt-dlp.exe");
         var ffmpegPath = _toolLocator.ResolveToolPath("ffmpeg.exe");
 
         try
         {
-            if (isReel)
+            // 1. Always inspect metadata first via --dump-single-json (no media download)
+            _logger?.LogInformation("Inspecting metadata for {Url} via yt-dlp --dump-single-json", url);
+            var dumpArgs = $"--dump-single-json --no-warnings \"{url}\"";
+            var dumpResult = await _processRunner.RunAsync(ytDlpPath, dumpArgs, workingDir, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(dumpResult, url);
+
+            using var doc = JsonDocument.Parse(dumpResult.StandardOutput);
+            var root = doc.RootElement;
+
+            // 2. Classify media type purely based on metadata JSON structure
+            var mediaType = DetectMediaType(root);
+            _logger?.LogInformation("Detected media type: {MediaType} for URL: {Url}", mediaType, url);
+
+            var title = root.TryGetProperty("title", out var t) ? t.GetString() : null;
+            var author = root.TryGetProperty("uploader", out var u) ? "@" + u.GetString()?.TrimStart('@') : null;
+            var caption = root.TryGetProperty("description", out var d) ? d.GetString() : null;
+
+            return mediaType switch
             {
-                return await DownloadReelAsync(url, workingDir, ytDlpPath, ffmpegPath, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                return await DownloadPostAsync(url, workingDir, ytDlpPath, ffmpegPath, cancellationToken).ConfigureAwait(false);
-            }
+                InstagramMediaType.Reel => await DownloadReelAsync(url, workingDir, ytDlpPath, ffmpegPath, title, author, caption, cancellationToken).ConfigureAwait(false),
+                InstagramMediaType.SingleImagePost => await DownloadSingleImagePostAsync(url, root, workingDir, title, author, caption, cancellationToken).ConfigureAwait(false),
+                InstagramMediaType.CarouselPost => await DownloadCarouselPostAsync(url, root, workingDir, ytDlpPath, ffmpegPath, title, author, caption, cancellationToken).ConfigureAwait(false),
+                _ => throw new DistillDownloadException($"Unsupported media type: {mediaType}")
+            };
         }
         catch (Exception ex) when (ex is not DistillDownloadException)
         {
@@ -65,29 +76,177 @@ public class YtDlpReelDownloader : IReelDownloader
         }
     }
 
-    private async Task<PostDownloadResult> DownloadPostAsync(
+    /// <summary>
+    /// Classifies an Instagram URL into Reel, SingleImagePost, or CarouselPost purely based on yt-dlp metadata JSON.
+    /// </summary>
+    /// <param name="root">The root JSON element returned by yt-dlp --dump-single-json.</param>
+    /// <returns>The classified InstagramMediaType.</returns>
+    public static InstagramMediaType DetectMediaType(JsonElement root)
+    {
+        if (root.TryGetProperty("entries", out var entriesProp) && entriesProp.ValueKind == JsonValueKind.Array)
+        {
+            var count = entriesProp.GetArrayLength();
+            if (count > 1)
+            {
+                return InstagramMediaType.CarouselPost;
+            }
+
+            if (count == 1)
+            {
+                var singleEntry = entriesProp[0];
+                return IsVideoEntry(singleEntry) ? InstagramMediaType.Reel : InstagramMediaType.SingleImagePost;
+            }
+        }
+
+        return IsVideoEntry(root) ? InstagramMediaType.Reel : InstagramMediaType.SingleImagePost;
+    }
+
+    /// <summary>
+    /// Determines whether a JSON item represents a video (formats array contains a format with vcodec != "none").
+    /// </summary>
+    public static bool IsVideoEntry(JsonElement entry)
+    {
+        if (entry.TryGetProperty("formats", out var formatsProp) && formatsProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var fmt in formatsProp.EnumerateArray())
+            {
+                if (fmt.TryGetProperty("vcodec", out var vcodecProp))
+                {
+                    var vcodec = vcodecProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(vcodec) && !vcodec.Equals("none", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private async Task<ReelDownloadResult> DownloadReelAsync(
         string url,
         string workingDir,
         string ytDlpPath,
         string ffmpegPath,
+        string? title,
+        string? author,
+        string? caption,
         CancellationToken cancellationToken)
     {
-        // 1. Run yt-dlp metadata-only extraction (--dump-single-json)
-        var arguments = $"--dump-single-json --no-warnings \"{url}\"";
-        var result = await _processRunner.RunAsync(ytDlpPath, arguments, workingDir, cancellationToken).ConfigureAwait(false);
-        EnsureSuccess(result, url);
+        var videoOutputTemplate = Path.Combine(workingDir, "video.%(ext)s");
+        var ytDlpArgs = $"--no-warnings --no-playlist -f \"b/bestvideo+bestaudio/best\" -o \"{videoOutputTemplate}\" \"{url}\"";
 
-        using var doc = JsonDocument.Parse(result.StandardOutput);
-        var root = doc.RootElement;
+        var ytResult = await _processRunner.RunAsync(ytDlpPath, ytDlpArgs, workingDir, cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(ytResult, url);
 
-        var title = root.TryGetProperty("title", out var t) ? t.GetString() : null;
-        var author = root.TryGetProperty("uploader", out var u) ? "@" + u.GetString()?.TrimStart('@') : null;
-        var caption = root.TryGetProperty("description", out var d) ? d.GetString() : null;
+        var videoExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mkv", ".webm", ".mov" };
+        var videoFile = Directory.GetFiles(workingDir)
+            .FirstOrDefault(f => videoExtensions.Contains(Path.GetExtension(f)));
+
+        if (string.IsNullOrEmpty(videoFile))
+        {
+            throw new DistillDownloadException($"yt-dlp completed successfully, but no video file was found in '{workingDir}'.");
+        }
+
+        // 1. Demux 16kHz mono audio (.wav) for speech transcription
+        var audioFilePath = Path.Combine(workingDir, "audio.wav");
+        var audioArgs = $"-i \"{videoFile}\" -vn -acodec pcm_s16le -ar 16000 -ac 1 -y \"{audioFilePath}\"";
+        var audioResult = await _processRunner.RunAsync(ffmpegPath, audioArgs, workingDir, cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(audioResult, url, "FFmpeg audio extraction failed");
+
+        // 2. Extract video keyframes
+        var framesDir = Path.Combine(workingDir, "frames");
+        Directory.CreateDirectory(framesDir);
+
+        var framePattern = Path.Combine(framesDir, "frame_%03d.jpg");
+
+        // Try scene-change extraction first
+        var sceneArgs = $"-i \"{videoFile}\" -vf \"select='gt(scene,0.3)',showinfo\" -vsync vfr \"{framePattern}\"";
+        await _processRunner.RunAsync(ffmpegPath, sceneArgs, workingDir, cancellationToken).ConfigureAwait(false);
+
+        var frameFiles = Directory.GetFiles(framesDir, "*.jpg").OrderBy(f => f).ToList();
+
+        // Fallback: If scene detection extracted 0 frames, sample every 2 seconds
+        if (frameFiles.Count == 0)
+        {
+            _logger?.LogInformation("Scene detection produced 0 frames; falling back to 2s interval sampling.");
+            var fallbackArgs = $"-i \"{videoFile}\" -vf \"fps=1/2\" \"{framePattern}\"";
+            var fallbackResult = await _processRunner.RunAsync(ffmpegPath, fallbackArgs, workingDir, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(fallbackResult, url, "FFmpeg frame extraction failed");
+
+            frameFiles = Directory.GetFiles(framesDir, "*.jpg").OrderBy(f => f).ToList();
+        }
+
+        return new ReelDownloadResult
+        {
+            SourceUrl = url,
+            WorkingDirectory = workingDir,
+            VideoFilePath = videoFile,
+            AudioFilePath = audioFilePath,
+            FrameFilePaths = frameFiles,
+            Title = title ?? "Instagram Reel",
+            Author = author,
+            Caption = caption
+        };
+    }
+
+    private async Task<PostDownloadResult> DownloadSingleImagePostAsync(
+        string url,
+        JsonElement root,
+        string workingDir,
+        string? title,
+        string? author,
+        string? caption,
+        CancellationToken cancellationToken)
+    {
+        var targetElement = root;
+        if (root.TryGetProperty("entries", out var entriesProp) && 
+            entriesProp.ValueKind == JsonValueKind.Array && 
+            entriesProp.GetArrayLength() == 1)
+        {
+            targetElement = entriesProp[0];
+        }
 
         var imageFilePaths = new List<string>();
+        var bestImageUrl = GetBestImageUrl(targetElement);
 
-        // 2 & 3. Process entries if carousel, otherwise process root object
+        if (!string.IsNullOrWhiteSpace(bestImageUrl))
+        {
+            var imagePath = Path.Combine(workingDir, "slide_001.jpg");
+            using var response = await _httpClient.GetAsync(bestImageUrl, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            await using var fileStream = File.Create(imagePath);
+            await response.Content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+            imageFilePaths.Add(imagePath);
+        }
+
+        return new PostDownloadResult
+        {
+            SourceUrl = url,
+            WorkingDirectory = workingDir,
+            ImageFilePaths = imageFilePaths,
+            Title = title ?? "Instagram Post",
+            Author = author,
+            Caption = caption
+        };
+    }
+
+    private async Task<PostDownloadResult> DownloadCarouselPostAsync(
+        string url,
+        JsonElement root,
+        string workingDir,
+        string ytDlpPath,
+        string ffmpegPath,
+        string? title,
+        string? author,
+        string? caption,
+        CancellationToken cancellationToken)
+    {
+        var imageFilePaths = new List<string>();
         var entries = new List<JsonElement>();
+
         if (root.TryGetProperty("entries", out var entriesProp) && entriesProp.ValueKind == JsonValueKind.Array)
         {
             entries.AddRange(entriesProp.EnumerateArray());
@@ -151,33 +310,13 @@ public class YtDlpReelDownloader : IReelDownloader
             SourceUrl = url,
             WorkingDirectory = workingDir,
             ImageFilePaths = imageFilePaths.OrderBy(f => f).ToList(),
-            Title = title ?? "Instagram Post",
+            Title = title ?? "Instagram Carousel",
             Author = author,
             Caption = caption
         };
     }
 
-    private static bool IsVideoEntry(JsonElement entry)
-    {
-        if (entry.TryGetProperty("formats", out var formatsProp) && formatsProp.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var fmt in formatsProp.EnumerateArray())
-            {
-                if (fmt.TryGetProperty("vcodec", out var vcodecProp))
-                {
-                    var vcodec = vcodecProp.GetString();
-                    if (!string.IsNullOrWhiteSpace(vcodec) && !vcodec.Equals("none", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static string? GetBestImageUrl(JsonElement entry)
+    public static string? GetBestImageUrl(JsonElement entry)
     {
         // 1. Search thumbnails array for highest resolution
         if (entry.TryGetProperty("thumbnails", out var thumbsProp) && thumbsProp.ValueKind == JsonValueKind.Array)
@@ -216,92 +355,26 @@ public class YtDlpReelDownloader : IReelDownloader
         return null;
     }
 
-    private async Task<ReelDownloadResult> DownloadReelAsync(
-        string url,
-        string workingDir,
-        string ytDlpPath,
-        string ffmpegPath,
-        CancellationToken cancellationToken)
-    {
-        var videoOutputTemplate = Path.Combine(workingDir, "video.%(ext)s");
-        var ytDlpArgs = $"--no-warnings --write-info-json --no-playlist -f \"b/bestvideo+bestaudio/best\" -o \"{videoOutputTemplate}\" \"{url}\"";
-
-        var ytResult = await _processRunner.RunAsync(ytDlpPath, ytDlpArgs, workingDir, cancellationToken).ConfigureAwait(false);
-        EnsureSuccess(ytResult, url);
-
-        var videoExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mkv", ".webm", ".mov" };
-        var videoFile = Directory.GetFiles(workingDir)
-            .FirstOrDefault(f => videoExtensions.Contains(Path.GetExtension(f)));
-
-        if (string.IsNullOrEmpty(videoFile))
-        {
-            throw new DistillDownloadException($"yt-dlp completed successfully, but no video file was found in '{workingDir}'.");
-        }
-
-        // 1. Demux 16kHz mono audio (.wav) for speech transcription
-        var audioFilePath = Path.Combine(workingDir, "audio.wav");
-        var audioArgs = $"-i \"{videoFile}\" -vn -acodec pcm_s16le -ar 16000 -ac 1 -y \"{audioFilePath}\"";
-        var audioResult = await _processRunner.RunAsync(ffmpegPath, audioArgs, workingDir, cancellationToken).ConfigureAwait(false);
-        EnsureSuccess(audioResult, url, "FFmpeg audio extraction failed");
-
-        // 2. Extract video keyframes
-        var framesDir = Path.Combine(workingDir, "frames");
-        Directory.CreateDirectory(framesDir);
-
-        var framePattern = Path.Combine(framesDir, "frame_%03d.jpg");
-        
-        // Try scene-change extraction first
-        var sceneArgs = $"-i \"{videoFile}\" -vf \"select='gt(scene,0.3)',showinfo\" -vsync vfr \"{framePattern}\"";
-        await _processRunner.RunAsync(ffmpegPath, sceneArgs, workingDir, cancellationToken).ConfigureAwait(false);
-
-        var frameFiles = Directory.GetFiles(framesDir, "*.jpg").OrderBy(f => f).ToList();
-
-        // Fallback: If scene detection extracted no frames, sample every 2 seconds
-        if (frameFiles.Count == 0)
-        {
-            _logger?.LogInformation("Scene detection produced 0 frames; falling back to 2s interval sampling.");
-            var fallbackArgs = $"-i \"{videoFile}\" -vf \"fps=1/2\" \"{framePattern}\"";
-            var fallbackResult = await _processRunner.RunAsync(ffmpegPath, fallbackArgs, workingDir, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(fallbackResult, url, "FFmpeg frame extraction failed");
-
-            frameFiles = Directory.GetFiles(framesDir, "*.jpg").OrderBy(f => f).ToList();
-        }
-
-        var (title, author, caption) = ParseMetadataFromWorkingDir(workingDir, url);
-
-        return new ReelDownloadResult
-        {
-            SourceUrl = url,
-            WorkingDirectory = workingDir,
-            VideoFilePath = videoFile,
-            AudioFilePath = audioFilePath,
-            FrameFilePaths = frameFiles,
-            Title = title ?? "Instagram Reel",
-            Author = author,
-            Caption = caption
-        };
-    }
-
     private static void EnsureSuccess(ProcessResult result, string url, string? errorContext = null)
     {
         if (result.Success) return;
 
         var combinedError = $"{result.StandardError} {result.StandardOutput}".ToLowerInvariant();
 
-        if (combinedError.Contains("login") || combinedError.Contains("private") || 
+        if (combinedError.Contains("login") || combinedError.Contains("private") ||
             combinedError.Contains("requires authentication") || combinedError.Contains("sign in"))
         {
             throw new PrivateMediaException($"Instagram media at '{url}' is private or requires user authentication.\nDetails: {result.StandardError.Trim()}");
         }
 
-        if (combinedError.Contains("429") || combinedError.Contains("rate limit") || 
+        if (combinedError.Contains("429") || combinedError.Contains("rate limit") ||
             combinedError.Contains("too many requests") || combinedError.Contains("temporarily blocked"))
         {
             throw new RateLimitException($"Instagram rate limit or temporary block encountered for '{url}'.\nDetails: {result.StandardError.Trim()}");
         }
 
-        if (combinedError.Contains("404") || combinedError.Contains("not found") || 
-            combinedError.Contains("does not exist") || combinedError.Contains("deleted") || 
+        if (combinedError.Contains("404") || combinedError.Contains("not found") ||
+            combinedError.Contains("does not exist") || combinedError.Contains("deleted") ||
             combinedError.Contains("unavailable"))
         {
             throw new MediaNotFoundException($"Instagram post or reel at '{url}' could not be found or has been deleted.\nDetails: {result.StandardError.Trim()}");
@@ -309,31 +382,5 @@ public class YtDlpReelDownloader : IReelDownloader
 
         var prefix = errorContext != null ? $"{errorContext}: " : string.Empty;
         throw new DistillDownloadException($"{prefix}Process failed with exit code {result.ExitCode}.\n{result.StandardError.Trim()}");
-    }
-
-    private (string? Title, string? Author, string? Caption) ParseMetadataFromWorkingDir(string workingDir, string fallbackUrl)
-    {
-        try
-        {
-            var infoJsonFile = Directory.GetFiles(workingDir, "*.info.json").FirstOrDefault();
-            if (infoJsonFile == null || !File.Exists(infoJsonFile))
-            {
-                return (null, null, null);
-            }
-
-            using var doc = JsonDocument.Parse(File.ReadAllText(infoJsonFile));
-            var root = doc.RootElement;
-
-            string? title = root.TryGetProperty("title", out var t) ? t.GetString() : null;
-            string? author = root.TryGetProperty("uploader", out var u) ? "@" + u.GetString()?.TrimStart('@') : null;
-            string? caption = root.TryGetProperty("description", out var d) ? d.GetString() : null;
-
-            return (title, author, caption);
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Failed to parse info.json metadata for {Url}", fallbackUrl);
-            return (null, null, null);
-        }
     }
 }

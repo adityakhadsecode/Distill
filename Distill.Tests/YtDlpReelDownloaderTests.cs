@@ -26,12 +26,176 @@ public class YtDlpReelDownloaderTests
         _downloader = new YtDlpReelDownloader(_fakeRunner, _fakeLocator, _fakeHttpClient);
     }
 
+    #region Fixture JSON Classification Unit Tests
+
+    [Fact]
+    public void DetectMediaType_WithReelJsonFixture_ClassifiesAsReel()
+    {
+        // Fixture: Reel with single video formats (vcodec != "none")
+        var reelJson = """
+        {
+            "id": "reel_123",
+            "title": "Architecture Masterclass Reel",
+            "uploader": "tech_creator",
+            "description": "5 tips for clean architecture",
+            "formats": [
+                { "format_id": "dash-video", "vcodec": "avc1.64001f", "width": 1080, "height": 1920 },
+                { "format_id": "audio-only", "vcodec": "none", "acodec": "mp4a.40.2" }
+            ],
+            "thumbnails": [
+                { "url": "https://instagram.com/reel_thumb.jpg", "width": 1080, "height": 1920 }
+            ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(reelJson);
+        var mediaType = YtDlpReelDownloader.DetectMediaType(doc.RootElement);
+
+        Assert.Equal(InstagramMediaType.Reel, mediaType);
+    }
+
+    [Fact]
+    public void DetectMediaType_WithSingleImagePostJsonFixture_ClassifiesAsSingleImagePost()
+    {
+        // Fixture: Single photo post with only thumbnails and empty/none video formats
+        var singleImageJson = """
+        {
+            "id": "photo_456",
+            "title": "System Design Infographic",
+            "uploader": "architect_daily",
+            "description": "Database indexing visual summary.",
+            "formats": [],
+            "thumbnails": [
+                { "url": "https://instagram.com/thumb_small.jpg", "width": 320, "height": 320 },
+                { "url": "https://instagram.com/thumb_large.jpg", "width": 1440, "height": 1440 }
+            ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(singleImageJson);
+        var mediaType = YtDlpReelDownloader.DetectMediaType(doc.RootElement);
+
+        Assert.Equal(InstagramMediaType.SingleImagePost, mediaType);
+    }
+
+    [Fact]
+    public void DetectMediaType_WithMultiImageCarouselJsonFixture_ClassifiesAsCarouselPost()
+    {
+        // Fixture: Multi-slide carousel containing 3 image entries
+        var multiImageCarouselJson = """
+        {
+            "id": "carousel_789",
+            "title": "Clean Code Rules Carousel",
+            "uploader": "senior_dev",
+            "description": "Swipe through for SOLID principles.",
+            "entries": [
+                {
+                    "id": "slide_1",
+                    "formats": [],
+                    "thumbnails": [{ "url": "https://instagram.com/s1.jpg", "width": 1080, "height": 1080 }]
+                },
+                {
+                    "id": "slide_2",
+                    "formats": [{ "vcodec": "none", "acodec": "none" }],
+                    "thumbnails": [{ "url": "https://instagram.com/s2.jpg", "width": 1080, "height": 1080 }]
+                },
+                {
+                    "id": "slide_3",
+                    "formats": [],
+                    "thumbnails": [{ "url": "https://instagram.com/s3.jpg", "width": 1080, "height": 1080 }]
+                }
+            ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(multiImageCarouselJson);
+        var mediaType = YtDlpReelDownloader.DetectMediaType(doc.RootElement);
+
+        Assert.Equal(InstagramMediaType.CarouselPost, mediaType);
+    }
+
+    [Fact]
+    public void DetectMediaType_WithMixedCarouselJsonFixture_ClassifiesAsCarouselPost()
+    {
+        // Fixture: Mixed carousel containing slide 1 (image) and slide 2 (video clip)
+        var mixedCarouselJson = """
+        {
+            "id": "mixed_carousel_999",
+            "title": "Tutorial & Demo",
+            "uploader": "fullstack_pro",
+            "description": "Slide 1 is steps, slide 2 is live video recording.",
+            "entries": [
+                {
+                    "id": "slide_1_image",
+                    "formats": [],
+                    "thumbnails": [{ "url": "https://instagram.com/slide1.jpg", "width": 1080, "height": 1080 }]
+                },
+                {
+                    "id": "slide_2_video",
+                    "webpage_url": "https://instagram.com/p/mixed_carousel_999#slide2",
+                    "formats": [
+                        { "format_id": "mp4-hd", "vcodec": "h264", "acodec": "aac" }
+                    ]
+                }
+            ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(mixedCarouselJson);
+        var mediaType = YtDlpReelDownloader.DetectMediaType(doc.RootElement);
+
+        Assert.Equal(InstagramMediaType.CarouselPost, mediaType);
+
+        // Verify per-slide detection logic
+        var entries = doc.RootElement.GetProperty("entries");
+        Assert.False(YtDlpReelDownloader.IsVideoEntry(entries[0]));
+        Assert.True(YtDlpReelDownloader.IsVideoEntry(entries[1]));
+    }
+
+    [Fact]
+    public void DetectMediaType_WithSingleEntryArray_UnwrapsAndClassifiesCorrectly()
+    {
+        // Fixture: Array with exactly 1 entry containing video
+        var singleEntryReelJson = """
+        {
+            "entries": [
+                {
+                    "id": "single_reel_inside_entry",
+                    "formats": [{ "vcodec": "h264", "acodec": "aac" }]
+                }
+            ]
+        }
+        """;
+
+        using var docReel = JsonDocument.Parse(singleEntryReelJson);
+        Assert.Equal(InstagramMediaType.Reel, YtDlpReelDownloader.DetectMediaType(docReel.RootElement));
+
+        // Fixture: Array with exactly 1 entry containing photo
+        var singleEntryPhotoJson = """
+        {
+            "entries": [
+                {
+                    "id": "single_photo_inside_entry",
+                    "formats": []
+                }
+            ]
+        }
+        """;
+
+        using var docPhoto = JsonDocument.Parse(singleEntryPhotoJson);
+        Assert.Equal(InstagramMediaType.SingleImagePost, YtDlpReelDownloader.DetectMediaType(docPhoto.RootElement));
+    }
+
+    #endregion
+
+    #region Download Pipeline Execution Tests
+
     [Fact]
     public async Task DownloadAsync_WithAllImageCarousel_DownloadsThumbnailsViaHttp()
     {
         // Arrange
         const string postUrl = "https://www.instagram.com/p/carousel_images_123/";
-        
+
         var metadataJson = JsonSerializer.Serialize(new
         {
             title = "Top 3 Visual Design Rules",
@@ -203,7 +367,6 @@ public class YtDlpReelDownloaderTests
         // Arrange
         const string postUrl = "https://www.instagram.com/p/single_image_789/";
 
-        // No entries array: top-level single image post metadata
         var metadataJson = JsonSerializer.Serialize(new
         {
             id = "single_image_post",
@@ -254,20 +417,31 @@ public class YtDlpReelDownloaderTests
     {
         // Arrange
         const string reelUrl = "https://www.instagram.com/reel/C123456789/";
+
+        var reelMetadataJson = JsonSerializer.Serialize(new
+        {
+            id = "C123456789",
+            title = "Clean Architecture Reel",
+            uploader = "code_coach",
+            description = "How to decouple your business logic.",
+            formats = new[]
+            {
+                new { format_id = "hd-video", vcodec = "h264", acodec = "aac" }
+            }
+        });
+
         _fakeRunner.CustomHandler = (exe, args, dir) =>
         {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, reelMetadataJson, string.Empty);
+            }
+
             if (dir == null) return new ProcessResult(0, "OK", string.Empty);
 
             if (exe.Contains("yt-dlp"))
             {
                 File.WriteAllText(Path.Combine(dir, "video.mp4"), "fake video data");
-                var infoJson = JsonSerializer.Serialize(new
-                {
-                    title = "Clean Architecture Reel",
-                    uploader = "code_coach",
-                    description = "How to decouple your business logic."
-                });
-                File.WriteAllText(Path.Combine(dir, "video.info.json"), infoJson);
             }
             else if (exe.Contains("ffmpeg") && args.Contains("pcm_s16le"))
             {
@@ -310,8 +484,25 @@ public class YtDlpReelDownloaderTests
     {
         // Arrange
         const string reelUrl = "https://www.instagram.com/reel/Cfallback123/";
+
+        var reelMetadataJson = JsonSerializer.Serialize(new
+        {
+            id = "Cfallback123",
+            title = "Static Reel",
+            uploader = "creator",
+            formats = new[]
+            {
+                new { format_id = "video-only", vcodec = "avc1", acodec = "none" }
+            }
+        });
+
         _fakeRunner.CustomHandler = (exe, args, dir) =>
         {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, reelMetadataJson, string.Empty);
+            }
+
             if (dir == null) return new ProcessResult(0, "OK", string.Empty);
 
             if (exe.Contains("yt-dlp"))
@@ -403,4 +594,6 @@ public class YtDlpReelDownloaderTests
         // Assert
         Assert.False(Directory.Exists(tempDir));
     }
+
+    #endregion
 }
