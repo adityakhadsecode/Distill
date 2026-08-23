@@ -19,16 +19,37 @@ public class ReelDownloaderStub : IReelDownloader
     {
         _logger?.LogInformation("Executing ReelDownloaderStub for URL: {Url}", url);
 
-        var result = new DownloadResult
-        {
-            SourceUrl = url,
-            Title = "Sample Distilled Post",
-            Author = "@creator",
-            Caption = "Sample caption extracted from Instagram post/reel.",
-            IsReel = url.Contains("/reel/", StringComparison.OrdinalIgnoreCase),
-            WorkingDirectory = Path.Combine(Path.GetTempPath(), "Distill", "Stub")
-        };
+        var tempDir = Path.Combine(Path.GetTempPath(), "Distill", "Stub_" + Guid.NewGuid().ToString("N"));
+        var isReel = url.Contains("/reel/", StringComparison.OrdinalIgnoreCase) || 
+                     url.Contains("/reels/", StringComparison.OrdinalIgnoreCase);
 
-        return Task.FromResult(result);
+        if (isReel)
+        {
+            var reelResult = new ReelDownloadResult
+            {
+                SourceUrl = url,
+                Title = "Sample Reel Distillation",
+                Author = "@creator",
+                Caption = "Sample educational reel caption.",
+                WorkingDirectory = tempDir,
+                VideoFilePath = Path.Combine(tempDir, "video.mp4"),
+                AudioFilePath = Path.Combine(tempDir, "audio.wav"),
+                FrameFilePaths = [Path.Combine(tempDir, "frames", "frame_001.jpg")]
+            };
+            return Task.FromResult<DownloadResult>(reelResult);
+        }
+        else
+        {
+            var postResult = new PostDownloadResult
+            {
+                SourceUrl = url,
+                Title = "Sample Carousel Post Distillation",
+                Author = "@creator",
+                Caption = "Sample educational carousel post caption.",
+                WorkingDirectory = tempDir,
+                ImageFilePaths = [Path.Combine(tempDir, "slide_001.jpg")]
+            };
+            return Task.FromResult<DownloadResult>(postResult);
+        }
     }
 }

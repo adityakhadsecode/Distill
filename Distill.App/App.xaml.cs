@@ -3,6 +3,7 @@ using Distill.Core.Configuration;
 using Distill.Core.Downloaders;
 using Distill.Core.Formatting;
 using Distill.Core.Ocr;
+using Distill.Core.Process;
 using Distill.Core.SpeechToText;
 using Distill.Core.VaultWriter;
 using Microsoft.Extensions.Configuration;
@@ -69,8 +70,12 @@ public partial class App : Application
         // Strongly typed Settings
         services.Configure<DistillSettings>(Configuration.GetSection(DistillSettings.SectionName));
 
-        // Core Pipeline Services (Stubs wired for now)
-        services.AddSingleton<IReelDownloader, ReelDownloaderStub>();
+        // Subprocess and Tool Infrastructure
+        services.AddSingleton<IProcessRunner, DefaultProcessRunner>();
+        services.AddSingleton<IToolLocator, ToolLocator>();
+
+        // Core Pipeline Services
+        services.AddSingleton<IReelDownloader, YtDlpReelDownloader>();
         services.AddSingleton<ITextExtractor, WindowsMediaOcrExtractorStub>();
         services.AddSingleton<ITranscriber, WhisperCppTranscriberStub>();
         services.AddSingleton<INoteFormatter, OllamaNoteFormatterStub>();

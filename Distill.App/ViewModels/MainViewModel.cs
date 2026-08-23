@@ -63,6 +63,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanDistill))]
     private async Task DistillAsync(CancellationToken cancellationToken)
     {
+        DownloadResult? downloadResult = null;
         try
         {
             IsProcessing = true;
@@ -70,23 +71,41 @@ public partial class MainViewModel : ObservableObject
             GeneratedNotePath = null;
             StatusMessage = "1/5: Downloading media from Instagram...";
 
-            var downloadResult = await _downloader.DownloadAsync(InstagramUrl, cancellationToken);
+            downloadResult = await _downloader.DownloadAsync(InstagramUrl, cancellationToken);
 
             StatusMessage = "2/5: Extracting text & audio speech...";
             var ocrSegments = new List<string>();
-            foreach (var img in downloadResult.ImageFilePaths)
+            var transcript = string.Empty;
+            var mediaType = "instagram_post";
+
+            if (downloadResult is PostDownloadResult postResult)
             {
-                var text = await _textExtractor.ExtractTextAsync(img, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(text))
+                mediaType = "instagram_post";
+                foreach (var img in postResult.ImageFilePaths)
                 {
-                    ocrSegments.Add(text);
+                    var text = await _textExtractor.ExtractTextAsync(img, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        ocrSegments.Add(text);
+                    }
                 }
             }
-
-            var transcript = string.Empty;
-            if (!string.IsNullOrWhiteSpace(downloadResult.AudioFilePath))
+            else if (downloadResult is ReelDownloadResult reelResult)
             {
-                transcript = await _transcriber.TranscribeAsync(downloadResult.AudioFilePath, cancellationToken);
+                mediaType = "instagram_reel";
+                foreach (var frame in reelResult.FrameFilePaths)
+                {
+                    var text = await _textExtractor.ExtractTextAsync(frame, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        ocrSegments.Add(text);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(reelResult.AudioFilePath))
+                {
+                    transcript = await _transcriber.TranscribeAsync(reelResult.AudioFilePath, cancellationToken);
+                }
             }
 
             var extractedContent = new ExtractedContent
@@ -101,7 +120,7 @@ public partial class MainViewModel : ObservableObject
                 Title = downloadResult.Title ?? "Instagram Distilled Note",
                 SourceUrl = InstagramUrl,
                 Author = downloadResult.Author,
-                MediaType = downloadResult.IsReel ? "instagram_reel" : "instagram_post",
+                MediaType = mediaType,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -122,6 +141,8 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            // Clean up temporary download artifacts
+            downloadResult?.Cleanup();
             IsProcessing = false;
         }
     }

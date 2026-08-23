@@ -24,7 +24,9 @@ public class StubPipelineTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(testUrl, result.SourceUrl);
-        Assert.True(result.IsReel);
+        var reelResult = Assert.IsType<ReelDownloadResult>(result);
+        Assert.False(string.IsNullOrWhiteSpace(reelResult.VideoFilePath));
+        Assert.False(string.IsNullOrWhiteSpace(reelResult.AudioFilePath));
     }
 
     [Fact]

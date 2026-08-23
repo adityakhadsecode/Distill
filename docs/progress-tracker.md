@@ -2,8 +2,7 @@
 
 ## Current Phase
 
-- **Phase 1: Project Scaffolding & Core Interfaces (Complete)**
-- Ready for **Phase 2: Extraction & Processing Engine Implementations**
+- **Phase 2: Extraction & Processing Engine Implementations (In Progress)**
 
 ---
 
@@ -21,33 +20,29 @@
 - [x] Established C# 12/.NET, WinUI 3, and subprocess engineering standards in [docs/code-standards.md](file:///e:/Coding/Projects/local-first%20Instagram%20%E2%86%92%20Obsidian%20knowledge%20extraction/docs/code-standards.md).
 - [x] Documented phased delivery roadmap and development guidelines in [docs/ai-workflow-rules.md](file:///e:/Coding/Projects/local-first%20Instagram%20%E2%86%92%20Obsidian%20knowledge%20extraction/docs/ai-workflow-rules.md).
 - [x] Created `Distill.sln` solution linking `Distill.App`, `Distill.Core`, and `Distill.Tests`.
-- [x] Created `Distill.Core` class library with domain models and 5 core pipeline interfaces/stubs:
-  - `Downloaders/` (`IReelDownloader`, `ReelDownloaderStub`)
-  - `Ocr/` (`ITextExtractor`, `WindowsMediaOcrExtractorStub`)
-  - `SpeechToText/` (`ITranscriber`, `WhisperCppTranscriberStub`)
-  - `Formatting/` (`INoteFormatter`, `OllamaNoteFormatterStub`)
-  - `VaultWriter/` (`IVaultWriter`, `ObsidianVaultWriterStub`)
-- [x] Added `Distill.App` WinUI 3 desktop application with `appsettings.json`, `app.manifest`, `MainViewModel` MVVM logic, and full `Microsoft.Extensions.DependencyInjection` container wiring in `App.xaml.cs`.
-- [x] Created `Distill.Tests` test suite with unit tests verifying pipeline stubs, frontmatter formatting, and settings loading.
-- [x] Configured GitHub Actions [.github/workflows/dotnet-desktop.yml](file:///e:/Coding/Projects/local-first%20Instagram%20%E2%86%92%20Obsidian%20knowledge%20extraction/.github/workflows/dotnet-desktop.yml) for .NET 8 WinUI 3 CI build, test, and release artifact publishing.
-- [x] Created public GitHub repository and synced all branches at [https://github.com/adityakhadsecode/Distill](https://github.com/adityakhadsecode/Distill).
+- [x] Created `Distill.Core` class library with domain models and 5 core pipeline interfaces/stubs.
+- [x] Configured GitHub Actions CI and public repository synchronization.
+- [x] Implemented `IProcessRunner` (`DefaultProcessRunner`) and `IToolLocator` (`ToolLocator`) for managed subprocess execution and tool discovery.
+- [x] Implemented `YtDlpReelDownloader` with Post (carousel image download) and Reel (video download + ffmpeg 16kHz WAV audio demux + scene/interval frame extraction).
+- [x] Defined concrete domain result types: `PostDownloadResult` and `ReelDownloadResult` with explicit `Cleanup()` lifecycle management.
+- [x] Added domain exceptions: `PrivateMediaException`, `RateLimitException`, `MediaNotFoundException`, `DistillDownloadException`.
+- [x] Added unit test suite with `FakeProcessRunner` verifying Post downloads, Reel demuxing/sampling, fallback frame sampling, exception handling, and cleanup.
 
 ---
 
 ## In Progress
 
-- Phase 2 Engine implementation readiness.
+- Phase 2 Engine Implementations (OCR, STT, LLM).
 
 ---
 
 ## Next Up
 
-- **Phase 2**:
-  - Implement real `YtDlpReelDownloader` using managed CLI subprocess execution.
-  - Implement `FFmpegAudioAndFrameProcessor` for 16kHz WAV audio demuxing and keyframe extraction.
+- **Phase 2 (Continued)**:
   - Implement native `WindowsMediaOcrExtractor` utilizing WinRT `Windows.Media.Ocr.OcrEngine`.
   - Implement `WhisperCppTranscriber` wrapping `whisper-cli.exe`.
   - Implement `OllamaNoteFormatter` calling `http://localhost:11434/api/generate` with prompt templates.
+  - Implement `ObsidianVaultWriter` with robust frontmatter formatting and collision resolution.
 
 ---
 
@@ -68,11 +63,12 @@
   - *Rationale*: Isolating extraction, OCR, STT, and LLM orchestration from WinUI 3 presentation types allows the same core logic to be reused for future Android app or CLI tools.
 - **Decision 3: Direct Vault Filesystem Integration**
   - *Rationale*: Direct `.md` file writing requires no Obsidian community plugin installation and immediately works with Obsidian's live filesystem watcher, accompanied by `obsidian://` URI deep links.
+- **Decision 4: Explicit Cleanup Model on DownloadResult**
+  - *Rationale*: `DownloadResult` implements `IDisposable` with a non-automatic `Cleanup()` method, allowing downstream pipeline stages (OCR, STT) to safely access intermediate images and audio files before explicitly purging the working directory.
 
 ---
 
 ## Session Notes
 
-- Solution and 3 projects created cleanly.
-- Dependency injection configured in `App.xaml.cs` with full MVVM bindings in `MainViewModel.cs` and `MainWindow.xaml`.
-- Remote GitHub repo completely synced with `main`.
+- `YtDlpReelDownloader` implemented and registered in DI container.
+- Unit tests written using `FakeProcessRunner`.
