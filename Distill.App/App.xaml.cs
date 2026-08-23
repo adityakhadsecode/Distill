@@ -1,4 +1,5 @@
 using Distill.App.ViewModels;
+using Distill.App.Views;
 using Distill.Core.Configuration;
 using Distill.Core.Downloaders;
 using Distill.Core.Formatting;
@@ -85,6 +86,7 @@ public partial class App : Application
         services.AddTransient<MainViewModel>();
 
         // Views
+        services.AddTransient<MainPage>();
         services.AddTransient<MainWindow>();
     }
 

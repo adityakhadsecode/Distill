@@ -1,0 +1,78 @@
+<Page
+    x:Class="Distill.App.Views.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:Distill.App.ViewModels"
+    mc:Ignorable="d">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,24">
+            <TextBlock Text="Distill" FontSize="28" FontWeight="SemiBold"/>
+            <TextBlock Text="Local-first Instagram Reel and Post extractor for your Obsidian Vault." 
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="14"/>
+        </StackPanel>
+
+        <!-- Ingest Section -->
+        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" 
+                CornerRadius="8" Padding="20" Margin="0,0,0,16">
+            <StackPanel Spacing="16">
+                <TextBlock Text="Instagram Post or Reel URL" FontWeight="Medium"/>
+                
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox Grid.Column="0" 
+                             PlaceholderText="Paste https://www.instagram.com/p/... or /reel/..." 
+                             Text="{x:Bind ViewModel.InstagramUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Button Grid.Column="1" 
+                            Content="Distill Note" 
+                            Style="{StaticResource AccentButtonStyle}"
+                            Command="{x:Bind ViewModel.DistillCommand}" 
+                            Padding="20,6"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Status & Progress -->
+        <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" 
+                CornerRadius="8" Padding="20" Margin="0,0,0,16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Pipeline Status" FontWeight="Medium"/>
+                
+                <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" 
+                             Visibility="{x:Bind ViewModel.IsProcessing, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+
+                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" 
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+                           TextWrapping="Wrap"/>
+
+                <Button Content="Open in Obsidian" 
+                        Visibility="{x:Bind ViewModel.CanOpenInObsidian, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                        Command="{x:Bind ViewModel.OpenInObsidianCommand}"
+                        HorizontalAlignment="Left"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Information / Footer Area -->
+        <Grid Grid.Row="3" VerticalAlignment="Bottom">
+            <TextBlock Text="Processing runs 100% locally via yt-dlp, ffmpeg, Windows.Media.Ocr, whisper.cpp, and Ollama." 
+                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" FontSize="12"/>
+        </Grid>
+    </Grid>
+</Page>

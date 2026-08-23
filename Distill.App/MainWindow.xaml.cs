@@ -1,4 +1,4 @@
-using Distill.App.ViewModels;
+using Distill.App.Views;
 using Microsoft.UI.Xaml;
 
 namespace Distill.App;
@@ -8,11 +8,9 @@ namespace Distill.App;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    public MainViewModel ViewModel { get; }
-
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainPage mainPage)
     {
         this.InitializeComponent();
-        ViewModel = viewModel;
+        this.Content = mainPage;
     }
 }
