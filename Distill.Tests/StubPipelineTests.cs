@@ -70,21 +70,18 @@ public class StubPipelineTests
         });
         INoteFormatter formatter = new OllamaNoteFormatterStub(settings);
 
-        var content = new ExtractedContent
+        var content = new RawExtractedContent
         {
-            SpokenTranscript = "Spoken video content",
-            OcrTextSegments = new[] { "Slide text line 1" }
-        };
-
-        var metadata = new NoteMetadata
-        {
-            Title = "Test Distilled Title",
             SourceUrl = "https://instagram.com/p/123",
-            Author = "@tester"
+            SourceType = SourceType.Post,
+            Title = "Test Distilled Title",
+            Author = "@tester",
+            TranscriptText = "Spoken video content",
+            OcrTextSegments = ["Slide text line 1"]
         };
 
         // Act
-        var markdown = await formatter.FormatNoteAsync(content, metadata);
+        var markdown = await formatter.FormatAsync(content);
 
         // Assert
         Assert.Contains("# Test Distilled Title", markdown);

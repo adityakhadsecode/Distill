@@ -76,11 +76,11 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = "2/5: Extracting text & audio speech...";
             var ocrSegments = new List<string>();
             var transcript = string.Empty;
-            var mediaType = "instagram_post";
+            var sourceType = SourceType.Post;
 
             if (downloadResult is PostDownloadResult postResult)
             {
-                mediaType = "instagram_post";
+                sourceType = SourceType.Post;
                 var ocrBatch = await _textExtractor.ExtractTextFromMultipleAsync(postResult.ImageFilePaths, cancellationToken);
                 foreach (var imgPath in postResult.ImageFilePaths)
                 {
@@ -92,7 +92,7 @@ public partial class MainViewModel : ObservableObject
             }
             else if (downloadResult is ReelDownloadResult reelResult)
             {
-                mediaType = "instagram_reel";
+                sourceType = SourceType.Reel;
                 var ocrBatch = await _textExtractor.ExtractTextFromMultipleAsync(reelResult.FrameFilePaths, cancellationToken);
                 foreach (var framePath in reelResult.FrameFilePaths)
                 {
@@ -108,11 +108,15 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            var extractedContent = new ExtractedContent
+            var rawContent = new RawExtractedContent
             {
-                SpokenTranscript = transcript,
+                SourceUrl = InstagramUrl,
+                SourceType = sourceType,
                 OcrTextSegments = ocrSegments,
-                RawCaption = downloadResult.Caption ?? string.Empty
+                TranscriptText = transcript,
+                Caption = downloadResult.Caption,
+                Title = downloadResult.Title,
+                Author = downloadResult.Author
             };
 
             var noteMetadata = new NoteMetadata
@@ -120,12 +124,12 @@ public partial class MainViewModel : ObservableObject
                 Title = downloadResult.Title ?? "Instagram Distilled Note",
                 SourceUrl = InstagramUrl,
                 Author = downloadResult.Author,
-                MediaType = mediaType,
+                MediaType = sourceType == SourceType.Reel ? "instagram_reel" : "instagram_post",
                 CreatedAt = DateTime.UtcNow
             };
 
             StatusMessage = "3/5: Synthesizing notes with Ollama LLM...";
-            var markdownBody = await _noteFormatter.FormatNoteAsync(extractedContent, noteMetadata, cancellationToken);
+            var markdownBody = await _noteFormatter.FormatAsync(rawContent, cancellationToken);
 
             StatusMessage = "4/5: Writing note to Obsidian vault...";
             var createdPath = await _vaultWriter.WriteNoteAsync(markdownBody, noteMetadata, cancellationToken);

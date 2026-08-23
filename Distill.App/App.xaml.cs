@@ -79,7 +79,7 @@ public partial class App : Application
         services.AddSingleton<IReelDownloader, YtDlpReelDownloader>();
         services.AddSingleton<ITextExtractor, WindowsMediaOcrExtractor>();
         services.AddSingleton<ITranscriber, WhisperCppTranscriber>();
-        services.AddSingleton<INoteFormatter, OllamaNoteFormatterStub>();
+        services.AddHttpClient<INoteFormatter, OllamaNoteFormatter>();
         services.AddSingleton<IVaultWriter, ObsidianVaultWriterStub>();
 
         // ViewModels

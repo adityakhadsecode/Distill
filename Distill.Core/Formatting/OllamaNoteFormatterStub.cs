@@ -20,32 +20,32 @@ public class OllamaNoteFormatterStub : INoteFormatter
         _logger = logger;
     }
 
-    public Task<string> FormatNoteAsync(ExtractedContent content, NoteMetadata metadata, CancellationToken cancellationToken = default)
+    public Task<string> FormatAsync(RawExtractedContent content, CancellationToken cancellationToken = default)
     {
         _logger?.LogInformation("Formatting note via Ollama Stub (Model: {Model}, Endpoint: {Endpoint})", _settings.OllamaModelName, _settings.OllamaEndpoint);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {metadata.Title}");
+        sb.AppendLine($"# {content.Title ?? "Distilled Instagram Note"}");
         sb.AppendLine();
         sb.AppendLine("## Summary");
-        sb.AppendLine(metadata.Summary ?? "Distilled overview of the captured content.");
+        sb.AppendLine("A distilled summary of key insights captured from Instagram.");
         sb.AppendLine();
         sb.AppendLine("## Key Takeaways");
-        sb.AppendLine("- Point 1: Essential concept extracted from the post.");
-        sb.AppendLine("- Point 2: Actionable technique or workflow detail.");
+        sb.AppendLine("- Core insight extracted from the media content.");
+        sb.AppendLine("- Actionable strategy or principle.");
         sb.AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(content.SpokenTranscript))
+        if (!string.IsNullOrWhiteSpace(content.TranscriptText))
         {
             sb.AppendLine("## Spoken Transcript");
-            sb.AppendLine(content.SpokenTranscript);
+            sb.AppendLine(content.TranscriptText);
             sb.AppendLine();
         }
 
-        if (content.OcrTextSegments.Count > 0)
+        if (!string.IsNullOrWhiteSpace(content.OcrText))
         {
             sb.AppendLine("## On-Screen Text (OCR)");
-            sb.AppendLine(content.CombinedOcrText);
+            sb.AppendLine(content.OcrText);
             sb.AppendLine();
         }
 

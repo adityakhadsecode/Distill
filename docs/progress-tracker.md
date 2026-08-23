@@ -30,21 +30,21 @@
 - [x] Implemented native `WindowsMediaOcrExtractor` using `Windows.Media.Ocr.OcrEngine` with user profile language loading, reading order sorting, and parallel batch processing (`ExtractTextFromMultipleAsync`).
 - [x] Added `OcrLanguageNotInstalledException` with actionable Windows settings instructions.
 - [x] Implemented `WhisperCppTranscriber` wrapping `whisper-cli.exe` with settings-based model path, thread count, language hints, timestamp stripping, diagnostic filtering, and graceful silent audio handling.
-- [x] Added unit test suite in `Distill.Tests/WhisperCppTranscriberTests.cs`.
+- [x] Implemented `OllamaNoteFormatter` calling `POST /api/generate` with anti-boilerplate distillation prompt templates, retry-once on failure, timeout handling, and `OllamaConnectionException`.
+- [x] Added unit test suite in `Distill.Tests/OllamaNoteFormatterTests.cs` using `FakeHttpMessageHandler`.
 
 ---
 
 ## In Progress
 
-- Phase 2 Engine Implementations (LLM formatting & Obsidian Vault writing).
+- Phase 2 Engine Implementations (Obsidian Vault writing).
 
 ---
 
 ## Next Up
 
 - **Phase 2 (Continued)**:
-  - Implement `OllamaNoteFormatter` calling `http://localhost:11434/api/generate` with prompt templates.
-  - Implement `ObsidianVaultWriter` with robust frontmatter formatting and collision resolution.
+  - Implement `ObsidianVaultWriter` with robust frontmatter formatting, sanitize filename, and collision resolution.
 
 ---
 
@@ -69,10 +69,12 @@
   - *Rationale*: `Windows.Media.Ocr` runs in-process with hardware acceleration and no external dependencies. Sorting detected word bounding boxes into vertical bands preserves natural human reading flow across Instagram carousels and infographic slides.
 - **Decision 6: Non-Throwing Graceful Transcriber Fallback**
   - *Rationale*: If audio is silent, corrupt, or whisper is not installed, `WhisperCppTranscriber` returns an empty string rather than throwing, allowing OCR-only synthesis to complete the note.
+- **Decision 7: Resilient Local Ollama Client**
+  - *Rationale*: `OllamaNoteFormatter` uses `stream: false` with single-retry resilience and clear diagnostics directing the user to start `ollama serve` if offline.
 
 ---
 
 ## Session Notes
 
-- `WhisperCppTranscriber` implemented and registered in DI container.
-- Unit tests added in `WhisperCppTranscriberTests.cs`.
+- `OllamaNoteFormatter` implemented and registered in DI container.
+- Unit tests added in `OllamaNoteFormatterTests.cs`.
