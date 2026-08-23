@@ -2,13 +2,14 @@
 
 ## Current Phase
 
-- **Phase 2: Extraction & Processing Engine Implementations (In Progress)**
+- **Phase 2: Extraction & Processing Engine Implementations (Completed)**
+- **Phase 3: End-to-End Pipeline Integration & Polish (In Progress)**
 
 ---
 
 ## Current Goal
 
-- Implement production engine components: `yt-dlp` media downloader, `ffmpeg` audio/frame processor, native `Windows.Media.Ocr`, `whisper.cpp` STT runner, and `Ollama` REST API client.
+- Deliver end-to-end user experience, UI feedback indicators, settings management, and automated end-to-end integration tests.
 
 ---
 
@@ -31,27 +32,22 @@
 - [x] Added `OcrLanguageNotInstalledException` with actionable Windows settings instructions.
 - [x] Implemented `WhisperCppTranscriber` wrapping `whisper-cli.exe` with settings-based model path, thread count, language hints, timestamp stripping, diagnostic filtering, and graceful silent audio handling.
 - [x] Implemented `OllamaNoteFormatter` calling `POST /api/generate` with anti-boilerplate distillation prompt templates, retry-once on failure, timeout handling, and `OllamaConnectionException`.
-- [x] Added unit test suite in `Distill.Tests/OllamaNoteFormatterTests.cs` using `FakeHttpMessageHandler`.
+- [x] Implemented `ObsidianVaultWriter` with heading-based title extraction, filesystem slug sanitization, collision suffix resolution, YAML frontmatter formatting, and `obsidian://` direct URI generation.
+- [x] Added unit test suites for all pipeline components (`YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`).
 
 ---
 
 ## In Progress
 
-- Phase 2 Engine Implementations (Obsidian Vault writing).
+- Phase 3 End-to-End Pipeline Polish & Settings View.
 
 ---
 
 ## Next Up
 
-- **Phase 2 (Continued)**:
-  - Implement `ObsidianVaultWriter` with robust frontmatter formatting, sanitize filename, and collision resolution.
-
----
-
-## Open Questions & Considerations
-
-1. **Default Ollama Model Selection**: Default to `llama3.2:3b` for fast, lightweight denoising on consumer laptops, with simple settings UI dropdown to switch to `qwen2.5:7b` or `llama3.1:8b`.
-2. **Instagram Cookie Handling**: Provide an optional settings input to specify browser or cookies file for `yt-dlp` to handle age-restricted reels.
+- **Phase 3**:
+  - Add Settings dialog/page in WinUI 3 for live configuration of Obsidian vault path, Ollama model, and whisper binary.
+  - Add progress percentage bar and detailed pipeline stage status indicators.
 
 ---
 
@@ -71,10 +67,12 @@
   - *Rationale*: If audio is silent, corrupt, or whisper is not installed, `WhisperCppTranscriber` returns an empty string rather than throwing, allowing OCR-only synthesis to complete the note.
 - **Decision 7: Resilient Local Ollama Client**
   - *Rationale*: `OllamaNoteFormatter` uses `stream: false` with single-retry resilience and clear diagnostics directing the user to start `ollama serve` if offline.
+- **Decision 8: Collision-Free Slugged Vault Writer**
+  - *Rationale*: Derives slugs from the synthesized note's H1 title, applies character sanitization, and appends numeric suffixes upon collision, maintaining full compatibility with Obsidian links.
 
 ---
 
 ## Session Notes
 
-- `OllamaNoteFormatter` implemented and registered in DI container.
-- Unit tests added in `OllamaNoteFormatterTests.cs`.
+- All 5 core pipeline implementations complete and connected in `Distill.App` DI container.
+- All unit test suites passing.

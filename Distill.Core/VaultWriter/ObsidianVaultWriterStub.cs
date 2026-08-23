@@ -1,4 +1,3 @@
-using System.Text;
 using Distill.Core.Configuration;
 using Distill.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -7,7 +6,7 @@ using Microsoft.Extensions.Options;
 namespace Distill.Core.VaultWriter;
 
 /// <summary>
-/// Stub implementation of <see cref="IVaultWriter"/> for Obsidian note generation.
+/// Stub implementation of <see cref="IVaultWriter"/> for testing and demonstration.
 /// </summary>
 public class ObsidianVaultWriterStub : IVaultWriter
 {
@@ -22,35 +21,21 @@ public class ObsidianVaultWriterStub : IVaultWriter
 
     public Task<string> WriteNoteAsync(string markdownContent, NoteMetadata metadata, CancellationToken cancellationToken = default)
     {
-        var targetDir = string.IsNullOrWhiteSpace(_settings.VaultFolderPath)
-            ? Path.Combine(Path.GetTempPath(), "Distill", "Vault")
-            : _settings.VaultFolderPath;
+        _logger?.LogInformation("Executing ObsidianVaultWriterStub to: {VaultPath}", _settings.VaultFolderPath);
+        var stubPath = Path.Combine(
+            string.IsNullOrWhiteSpace(_settings.VaultFolderPath) ? Path.GetTempPath() : _settings.VaultFolderPath,
+            $"Distilled_Note_{DateTime.UtcNow:yyyyMMdd_HHmmss}.md");
 
-        Directory.CreateDirectory(targetDir);
+        return Task.FromResult(stubPath);
+    }
 
-        var safeSlug = string.Join("_", metadata.Title.Split(Path.GetInvalidFileNameChars()));
-        var filePath = Path.Combine(targetDir, $"{metadata.CreatedAt:yyyy-MM-dd}-{safeSlug}.md");
-
-        _logger?.LogInformation("Writing Obsidian note to {FilePath}", filePath);
-
-        var fullNote = new StringBuilder();
-        fullNote.AppendLine("---");
-        fullNote.AppendLine($"title: \"{metadata.Title}\"");
-        fullNote.AppendLine($"date: {metadata.CreatedAt:yyyy-MM-ddTHH:mm:ss}");
-        fullNote.AppendLine($"source_url: \"{metadata.SourceUrl}\"");
-        fullNote.AppendLine($"author: \"{metadata.Author ?? "unknown"}\"");
-        fullNote.AppendLine($"type: \"{metadata.MediaType}\"");
-        fullNote.AppendLine("tags:");
-        foreach (var tag in metadata.Tags)
+    public string BuildObsidianUri(string fullFilePath, string? vaultName = null)
+    {
+        if (!string.IsNullOrWhiteSpace(vaultName))
         {
-            fullNote.AppendLine($"  - {tag}");
+            return $"obsidian://open?vault={Uri.EscapeDataString(vaultName)}&file={Uri.EscapeDataString(Path.GetFileName(fullFilePath))}";
         }
-        fullNote.AppendLine("---");
-        fullNote.AppendLine();
-        fullNote.Append(markdownContent);
 
-        File.WriteAllText(filePath, fullNote.ToString(), Encoding.UTF8);
-
-        return Task.FromResult(filePath);
+        return $"obsidian://open?path={Uri.EscapeDataString(fullFilePath)}";
     }
 }

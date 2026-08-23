@@ -124,8 +124,9 @@ public partial class MainViewModel : ObservableObject
                 Title = downloadResult.Title ?? "Instagram Distilled Note",
                 SourceUrl = InstagramUrl,
                 Author = downloadResult.Author,
-                MediaType = sourceType == SourceType.Reel ? "instagram_reel" : "instagram_post",
-                CreatedAt = DateTime.UtcNow
+                SourceType = sourceType,
+                CapturedAtUtc = DateTime.UtcNow,
+                Tags = ["instagram", sourceType == SourceType.Reel ? "reel" : "post", "distilled"]
             };
 
             StatusMessage = "3/5: Synthesizing notes with Ollama LLM...";
@@ -158,16 +159,40 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            Process.Start(new ProcessStartInfo
+            var obsidianUri = _vaultWriter.BuildObsidianUri(GeneratedNotePath);
+            if (!string.IsNullOrWhiteSpace(obsidianUri))
             {
-                FileName = GeneratedNotePath,
-                UseShellExecute = true
-            });
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = obsidianUri,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = GeneratedNotePath,
+                    UseShellExecute = true
+                });
+            }
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to open note in Obsidian");
-            StatusMessage = $"Failed to open note: {ex.Message}";
+            _logger?.LogWarning(ex, "Failed to open via obsidian:// URI. Attempting direct file open.");
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = GeneratedNotePath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception innerEx)
+            {
+                _logger?.LogError(innerEx, "Failed to open note file");
+                StatusMessage = $"Failed to open note: {innerEx.Message}";
+            }
         }
     }
 }

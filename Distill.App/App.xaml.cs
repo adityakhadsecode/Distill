@@ -80,7 +80,7 @@ public partial class App : Application
         services.AddSingleton<ITextExtractor, WindowsMediaOcrExtractor>();
         services.AddSingleton<ITranscriber, WhisperCppTranscriber>();
         services.AddHttpClient<INoteFormatter, OllamaNoteFormatter>();
-        services.AddSingleton<IVaultWriter, ObsidianVaultWriterStub>();
+        services.AddSingleton<IVaultWriter, ObsidianVaultWriter>();
 
         // ViewModels
         services.AddTransient<MainViewModel>();
