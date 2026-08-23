@@ -9,6 +9,10 @@ public class BooleanToVisibilityConverter : IValueConverter
     {
         if (value is bool boolValue)
         {
+            if (parameter is string p && p.Equals("invert", StringComparison.OrdinalIgnoreCase))
+            {
+                return boolValue ? Visibility.Collapsed : Visibility.Visible;
+            }
             return boolValue ? Visibility.Visible : Visibility.Collapsed;
         }
 
