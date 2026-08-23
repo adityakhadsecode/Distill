@@ -24,6 +24,7 @@
 - [x] Configured GitHub Actions CI and public repository synchronization.
 - [x] Implemented `IProcessRunner` (`DefaultProcessRunner`) and `IToolLocator` (`ToolLocator`) for managed subprocess execution and tool discovery.
 - [x] Implemented `YtDlpReelDownloader` with Post (carousel image download) and Reel (video download + ffmpeg 16kHz WAV audio demux + scene/interval frame extraction).
+- [x] Fixed Post carousel download path in `YtDlpReelDownloader`: runs `yt-dlp --dump-single-json`, handles image-only slides via direct HTTP thumbnail downloads (preventing "no video formats found" errors), and processes video slides with yt-dlp + ffmpeg.
 - [x] Defined concrete domain result types: `PostDownloadResult` and `ReelDownloadResult` with explicit `Cleanup()` lifecycle management.
 - [x] Added domain exceptions: `PrivateMediaException`, `RateLimitException`, `MediaNotFoundException`, `DistillDownloadException`.
 - [x] Added unit test suite with `FakeProcessRunner` verifying Post downloads, Reel demuxing/sampling, fallback frame sampling, exception handling, and cleanup.
@@ -35,7 +36,7 @@
 - [x] Implemented `PipelineOrchestrator` in `Distill.Core.Pipeline` orchestrating full sequence (download -> OCR/STT -> Ollama distillation -> Obsidian vault save) with fine-grained progress events.
 - [x] Built WinUI 3 `MainPage` with Fluent `NavigationView`, Ingest Hero card, Real-time Job Queue `ListView`, and complete `Settings` management panel.
 - [x] Implemented background task job execution so UI remains 100% fluid and non-blocking during heavy AI/extraction workloads.
-- [x] Added comprehensive unit test suites covering all components (`PipelineOrchestratorTests`, `YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`).
+- [x] Added comprehensive unit test suites covering all components (`PipelineOrchestratorTests`, `YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`) — **33 tests passing**.
 
 ---
 
@@ -65,10 +66,12 @@
   - *Rationale*: Derives slugs from the synthesized note's H1 title, applies character sanitization, and appends numeric suffixes upon collision, maintaining full compatibility with Obsidian links.
 - **Decision 9: Event-Driven Non-Blocking Pipeline Orchestration**
   - *Rationale*: `PipelineOrchestrator` fires `JobChanged` events as each phase completes; `MainViewModel` updates observable items via `DispatcherQueue` on background worker tasks, ensuring the UI is never blocked by video downloads or AI inference.
+- **Decision 10: Metadata Dump & Direct HTTP Carousel Ingestion**
+  - *Rationale*: Running `yt-dlp --dump-single-json` inspects carousel entries individually; downloading image slides directly via `HttpClient` resolves the "no video formats found" yt-dlp error while preserving video download handling for mixed carousels.
 
 ---
 
 ## Session Notes
 
-- UI layer complete with real-time job cards, progress bars, and Settings view.
-- Pushed and synchronized to GitHub.
+- Carousel post download path fixed and verified with 3 dedicated mock unit tests.
+- Application recompiled and running on desktop.

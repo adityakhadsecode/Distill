@@ -40,6 +40,12 @@ appsettings.Development.json
 appsettings.local.json
 local.settings.json
 
+## Local Binary Tools & Models
+tools/
+*.bin
+*.exe
+*.dll
+
 ## OS Generated
 Thumbs.db
 ehthumbs.db

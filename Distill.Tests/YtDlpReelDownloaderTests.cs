@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Distill.Core.Downloaders;
 using Distill.Core.Exceptions;
@@ -12,39 +13,78 @@ public class YtDlpReelDownloaderTests
 {
     private readonly FakeProcessRunner _fakeRunner;
     private readonly FakeToolLocator _fakeLocator;
+    private readonly FakeHttpMessageHandler _fakeHttpHandler;
+    private readonly HttpClient _fakeHttpClient;
     private readonly YtDlpReelDownloader _downloader;
 
     public YtDlpReelDownloaderTests()
     {
         _fakeRunner = new FakeProcessRunner();
         _fakeLocator = new FakeToolLocator();
-        _downloader = new YtDlpReelDownloader(_fakeRunner, _fakeLocator);
+        _fakeHttpHandler = new FakeHttpMessageHandler();
+        _fakeHttpClient = new HttpClient(_fakeHttpHandler);
+        _downloader = new YtDlpReelDownloader(_fakeRunner, _fakeLocator, _fakeHttpClient);
     }
 
     [Fact]
-    public async Task DownloadAsync_WithPostUrl_DownloadsCarouselImagesAndReturnsPostResult()
+    public async Task DownloadAsync_WithAllImageCarousel_DownloadsThumbnailsViaHttp()
     {
         // Arrange
-        const string postUrl = "https://www.instagram.com/p/C987654321/";
-        _fakeRunner.CustomHandler = (exe, args, dir) =>
+        const string postUrl = "https://www.instagram.com/p/carousel_images_123/";
+        
+        var metadataJson = JsonSerializer.Serialize(new
         {
-            if (dir != null)
+            title = "Top 3 Visual Design Rules",
+            uploader = "designer_guru",
+            description = "Here are 3 tips for contrast and hierarchy.",
+            entries = new[]
             {
-                // Simulate yt-dlp downloading 3 carousel slide images and writing info json
-                File.WriteAllText(Path.Combine(dir, "slide_001.jpg"), "slide 1 content");
-                File.WriteAllText(Path.Combine(dir, "slide_002.jpg"), "slide 2 content");
-                File.WriteAllText(Path.Combine(dir, "slide_003.png"), "slide 3 content");
-
-                var infoJson = JsonSerializer.Serialize(new
+                new
                 {
-                    title = "Awesome Architecture Post",
-                    uploader = "design_daily",
-                    description = "Key principles of modern UI design."
-                });
-                File.WriteAllText(Path.Combine(dir, "metadata.info.json"), infoJson);
+                    id = "slide_1",
+                    formats = Array.Empty<object>(),
+                    thumbnails = new[]
+                    {
+                        new { url = "https://instagram.com/img1_small.jpg", width = 300, height = 300 },
+                        new { url = "https://instagram.com/img1_large.jpg", width = 1080, height = 1080 }
+                    }
+                },
+                new
+                {
+                    id = "slide_2",
+                    formats = Array.Empty<object>(),
+                    thumbnails = new[]
+                    {
+                        new { url = "https://instagram.com/img2_large.jpg", width = 1080, height = 1080 }
+                    }
+                },
+                new
+                {
+                    id = "slide_3",
+                    formats = Array.Empty<object>(),
+                    thumbnails = new[]
+                    {
+                        new { url = "https://instagram.com/img3_large.jpg", width = 1080, height = 1080 }
+                    }
+                }
             }
+        });
 
-            return new ProcessResult(0, "yt-dlp success", string.Empty);
+        _fakeRunner.CustomHandler = (exe, args, _) =>
+        {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, metadataJson, string.Empty);
+            }
+            return new ProcessResult(0, "OK", string.Empty);
+        };
+
+        _fakeHttpHandler.Handler = request =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02 }) // valid mock JPEG bytes
+            };
         };
 
         // Act
@@ -54,16 +94,159 @@ public class YtDlpReelDownloaderTests
         Assert.NotNull(result);
         var postResult = Assert.IsType<PostDownloadResult>(result);
         Assert.Equal(postUrl, postResult.SourceUrl);
-        Assert.Equal("Awesome Architecture Post", postResult.Title);
-        Assert.Equal("@design_daily", postResult.Author);
+        Assert.Equal("Top 3 Visual Design Rules", postResult.Title);
+        Assert.Equal("@designer_guru", postResult.Author);
         Assert.Equal(3, postResult.ImageFilePaths.Count);
-        Assert.Contains(postResult.ImageFilePaths, p => p.EndsWith("slide_001.jpg"));
-        Assert.Contains(postResult.ImageFilePaths, p => p.EndsWith("slide_002.jpg"));
-        Assert.Contains(postResult.ImageFilePaths, p => p.EndsWith("slide_003.png"));
+
+        // Verify 3 HTTP GET requests made for highest-resolution images
+        Assert.Equal(3, _fakeHttpHandler.Requests.Count);
+        Assert.Equal("https://instagram.com/img1_large.jpg", _fakeHttpHandler.Requests[0].RequestUri?.ToString());
+        Assert.Equal("https://instagram.com/img2_large.jpg", _fakeHttpHandler.Requests[1].RequestUri?.ToString());
+        Assert.Equal("https://instagram.com/img3_large.jpg", _fakeHttpHandler.Requests[2].RequestUri?.ToString());
+
+        // Verify all 3 image files exist in working directory
+        foreach (var imgPath in postResult.ImageFilePaths)
+        {
+            Assert.True(File.Exists(imgPath));
+        }
 
         // Cleanup
         result.Cleanup();
         Assert.False(Directory.Exists(result.WorkingDirectory));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_WithMixedCarousel_DownloadsImageViaHttpAndVideoViaYtDlp()
+    {
+        // Arrange
+        const string postUrl = "https://www.instagram.com/p/mixed_carousel_456/";
+
+        var metadataJson = JsonSerializer.Serialize(new
+        {
+            title = "Mixed Media Post",
+            uploader = "tech_lead",
+            description = "Slide 1 is an infographic, Slide 2 is a demo video.",
+            entries = new object[]
+            {
+                new
+                {
+                    id = "slide_1",
+                    formats = Array.Empty<object>(),
+                    thumbnails = new[]
+                    {
+                        new { url = "https://instagram.com/slide1_hd.jpg", width = 1080, height = 1080 }
+                    }
+                },
+                new
+                {
+                    id = "slide_2",
+                    webpage_url = "https://instagram.com/p/mixed_carousel_456#slide2",
+                    formats = new[]
+                    {
+                        new { format_id = "mp4-hd", vcodec = "h264", acodec = "aac" }
+                    }
+                }
+            }
+        });
+
+        _fakeRunner.CustomHandler = (exe, args, dir) =>
+        {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, metadataJson, string.Empty);
+            }
+
+            if (exe.Contains("yt-dlp") && dir != null)
+            {
+                // Simulate yt-dlp downloading slide_002.mp4
+                File.WriteAllBytes(Path.Combine(dir, "slide_002.mp4"), new byte[] { 0x00, 0x01 });
+            }
+            else if (exe.Contains("ffmpeg") && args.Contains("-vframes 1") && dir != null)
+            {
+                // Simulate ffmpeg frame extraction for slide_002.jpg
+                File.WriteAllBytes(Path.Combine(dir, "slide_002.jpg"), new byte[] { 0xFF, 0xD8 });
+            }
+
+            return new ProcessResult(0, "OK", string.Empty);
+        };
+
+        _fakeHttpHandler.Handler = request =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 0xFF, 0xD8, 0x01 })
+            };
+        };
+
+        // Act
+        var result = await _downloader.DownloadAsync(postUrl);
+
+        // Assert
+        Assert.NotNull(result);
+        var postResult = Assert.IsType<PostDownloadResult>(result);
+        Assert.Equal(2, postResult.ImageFilePaths.Count);
+
+        // 1 HTTP request made for slide 1
+        Assert.Single(_fakeHttpHandler.Requests);
+        Assert.Equal("https://instagram.com/slide1_hd.jpg", _fakeHttpHandler.Requests[0].RequestUri?.ToString());
+
+        // 1 yt-dlp video download + 1 ffmpeg frame extraction for slide 2
+        Assert.Contains(_fakeRunner.Executions, e => e.Arguments.Contains("slide_002.mp4"));
+        Assert.Contains(_fakeRunner.Executions, e => e.Arguments.Contains("-vframes 1"));
+
+        result.Cleanup();
+    }
+
+    [Fact]
+    public async Task DownloadAsync_WithSingleImagePost_DownloadsDirectImage()
+    {
+        // Arrange
+        const string postUrl = "https://www.instagram.com/p/single_image_789/";
+
+        // No entries array: top-level single image post metadata
+        var metadataJson = JsonSerializer.Serialize(new
+        {
+            id = "single_image_post",
+            title = "Single Infographic Image",
+            uploader = "data_viz",
+            description = "Standalone infographic poster.",
+            formats = Array.Empty<object>(),
+            thumbnails = new[]
+            {
+                new { url = "https://instagram.com/single_poster_full.jpg", width = 1440, height = 1440 }
+            }
+        });
+
+        _fakeRunner.CustomHandler = (exe, args, _) =>
+        {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, metadataJson, string.Empty);
+            }
+            return new ProcessResult(0, "OK", string.Empty);
+        };
+
+        _fakeHttpHandler.Handler = request =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 0xFF, 0xD8, 0xFF })
+            };
+        };
+
+        // Act
+        var result = await _downloader.DownloadAsync(postUrl);
+
+        // Assert
+        Assert.NotNull(result);
+        var postResult = Assert.IsType<PostDownloadResult>(result);
+        Assert.Equal("Single Infographic Image", postResult.Title);
+        Assert.Equal("@data_viz", postResult.Author);
+        Assert.Single(postResult.ImageFilePaths);
+        Assert.Single(_fakeHttpHandler.Requests);
+        Assert.Equal("https://instagram.com/single_poster_full.jpg", _fakeHttpHandler.Requests[0].RequestUri?.ToString());
+
+        result.Cleanup();
     }
 
     [Fact]
@@ -141,7 +324,6 @@ public class YtDlpReelDownloaderTests
             }
             else if (exe.Contains("ffmpeg") && args.Contains("fps=1/2"))
             {
-                // Fallback interval sampling triggered!
                 var framesDir = Path.Combine(dir, "frames");
                 Directory.CreateDirectory(framesDir);
                 File.WriteAllText(Path.Combine(framesDir, "frame_001.jpg"), "sampled frame 1");
@@ -158,7 +340,6 @@ public class YtDlpReelDownloaderTests
         var reelResult = Assert.IsType<ReelDownloadResult>(result);
         Assert.Equal(2, reelResult.FrameFilePaths.Count);
 
-        // Assert both scene detection and fallback interval ffmpeg were called
         Assert.Contains(_fakeRunner.Executions, e => e.Arguments.Contains("gt(scene,0.3)"));
         Assert.Contains(_fakeRunner.Executions, e => e.Arguments.Contains("fps=1/2"));
 

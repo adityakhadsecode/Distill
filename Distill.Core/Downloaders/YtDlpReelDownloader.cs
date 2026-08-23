@@ -7,21 +7,24 @@ using Microsoft.Extensions.Logging;
 namespace Distill.Core.Downloaders;
 
 /// <summary>
-/// Downloads Instagram Reels and Posts using yt-dlp and extracts audio/frames with ffmpeg.
+/// Downloads Instagram Reels and Posts using yt-dlp, direct HTTP image fetching, and extracts audio/frames with ffmpeg.
 /// </summary>
 public class YtDlpReelDownloader : IReelDownloader
 {
     private readonly IProcessRunner _processRunner;
     private readonly IToolLocator _toolLocator;
+    private readonly HttpClient _httpClient;
     private readonly ILogger<YtDlpReelDownloader>? _logger;
 
     public YtDlpReelDownloader(
         IProcessRunner processRunner,
         IToolLocator toolLocator,
+        HttpClient? httpClient = null,
         ILogger<YtDlpReelDownloader>? logger = null)
     {
         _processRunner = processRunner;
         _toolLocator = toolLocator;
+        _httpClient = httpClient ?? new HttpClient();
         _logger = logger;
     }
 
@@ -52,7 +55,7 @@ public class YtDlpReelDownloader : IReelDownloader
             }
             else
             {
-                return await DownloadPostAsync(url, workingDir, ytDlpPath, cancellationToken).ConfigureAwait(false);
+                return await DownloadPostAsync(url, workingDir, ytDlpPath, ffmpegPath, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not DistillDownloadException)
@@ -66,31 +69,151 @@ public class YtDlpReelDownloader : IReelDownloader
         string url,
         string workingDir,
         string ytDlpPath,
+        string ffmpegPath,
         CancellationToken cancellationToken)
     {
-        var outputTemplate = Path.Combine(workingDir, "slide_%(autonumber)03d.%(ext)s");
-        var arguments = $"--no-warnings --write-info-json --no-playlist -o \"{outputTemplate}\" \"{url}\"";
-
+        // 1. Run yt-dlp metadata-only extraction (--dump-single-json)
+        var arguments = $"--dump-single-json --no-warnings \"{url}\"";
         var result = await _processRunner.RunAsync(ytDlpPath, arguments, workingDir, cancellationToken).ConfigureAwait(false);
         EnsureSuccess(result, url);
 
-        var imageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
-        var imageFiles = Directory.GetFiles(workingDir)
-            .Where(f => imageExtensions.Contains(Path.GetExtension(f)))
-            .OrderBy(f => f)
-            .ToList();
+        using var doc = JsonDocument.Parse(result.StandardOutput);
+        var root = doc.RootElement;
 
-        var (title, author, caption) = ParseMetadataFromWorkingDir(workingDir, url);
+        var title = root.TryGetProperty("title", out var t) ? t.GetString() : null;
+        var author = root.TryGetProperty("uploader", out var u) ? "@" + u.GetString()?.TrimStart('@') : null;
+        var caption = root.TryGetProperty("description", out var d) ? d.GetString() : null;
+
+        var imageFilePaths = new List<string>();
+
+        // 2 & 3. Process entries if carousel, otherwise process root object
+        var entries = new List<JsonElement>();
+        if (root.TryGetProperty("entries", out var entriesProp) && entriesProp.ValueKind == JsonValueKind.Array)
+        {
+            entries.AddRange(entriesProp.EnumerateArray());
+        }
+        else
+        {
+            entries.Add(root);
+        }
+
+        var slideIndex = 1;
+        foreach (var entry in entries)
+        {
+            if (IsVideoEntry(entry))
+            {
+                // Video slide in carousel: download video via yt-dlp and extract representative frame via ffmpeg
+                var slideUrl = entry.TryGetProperty("webpage_url", out var wp) ? wp.GetString() : null;
+                if (string.IsNullOrWhiteSpace(slideUrl))
+                {
+                    slideUrl = entry.TryGetProperty("url", out var entryUrl) ? entryUrl.GetString() : url;
+                }
+
+                var videoFile = Path.Combine(workingDir, $"slide_{slideIndex:D3}.mp4");
+                var videoArgs = $"--no-warnings --no-playlist -f \"b/bestvideo+bestaudio/best\" -o \"{videoFile}\" \"{slideUrl}\"";
+                var videoResult = await _processRunner.RunAsync(ytDlpPath, videoArgs, workingDir, cancellationToken).ConfigureAwait(false);
+                EnsureSuccess(videoResult, slideUrl ?? url);
+
+                var framePath = Path.Combine(workingDir, $"slide_{slideIndex:D3}.jpg");
+                var frameArgs = $"-i \"{videoFile}\" -vframes 1 -y \"{framePath}\"";
+                await _processRunner.RunAsync(ffmpegPath, frameArgs, workingDir, cancellationToken).ConfigureAwait(false);
+
+                if (File.Exists(framePath))
+                {
+                    imageFilePaths.Add(framePath);
+                }
+                else if (File.Exists(videoFile))
+                {
+                    imageFilePaths.Add(videoFile);
+                }
+            }
+            else
+            {
+                // Image slide: download highest-resolution thumbnail directly via HTTP
+                var bestImageUrl = GetBestImageUrl(entry);
+                if (!string.IsNullOrWhiteSpace(bestImageUrl))
+                {
+                    var imagePath = Path.Combine(workingDir, $"slide_{slideIndex:D3}.jpg");
+                    using var response = await _httpClient.GetAsync(bestImageUrl, cancellationToken).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+
+                    await using var fileStream = File.Create(imagePath);
+                    await response.Content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                    imageFilePaths.Add(imagePath);
+                }
+            }
+
+            slideIndex++;
+        }
 
         return new PostDownloadResult
         {
             SourceUrl = url,
             WorkingDirectory = workingDir,
-            ImageFilePaths = imageFiles,
+            ImageFilePaths = imageFilePaths.OrderBy(f => f).ToList(),
             Title = title ?? "Instagram Post",
             Author = author,
             Caption = caption
         };
+    }
+
+    private static bool IsVideoEntry(JsonElement entry)
+    {
+        if (entry.TryGetProperty("formats", out var formatsProp) && formatsProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var fmt in formatsProp.EnumerateArray())
+            {
+                if (fmt.TryGetProperty("vcodec", out var vcodecProp))
+                {
+                    var vcodec = vcodecProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(vcodec) && !vcodec.Equals("none", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static string? GetBestImageUrl(JsonElement entry)
+    {
+        // 1. Search thumbnails array for highest resolution
+        if (entry.TryGetProperty("thumbnails", out var thumbsProp) && thumbsProp.ValueKind == JsonValueKind.Array)
+        {
+            string? bestUrl = null;
+            var maxDimension = -1;
+
+            foreach (var thumb in thumbsProp.EnumerateArray())
+            {
+                var thumbUrl = thumb.TryGetProperty("url", out var u) ? u.GetString() : null;
+                if (string.IsNullOrWhiteSpace(thumbUrl)) continue;
+
+                var width = thumb.TryGetProperty("width", out var w) && w.TryGetInt32(out var widthVal) ? widthVal : 0;
+                var height = thumb.TryGetProperty("height", out var h) && h.TryGetInt32(out var heightVal) ? heightVal : 0;
+                var dimension = width * height;
+
+                if (dimension > maxDimension || bestUrl == null)
+                {
+                    maxDimension = dimension;
+                    bestUrl = thumbUrl;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(bestUrl))
+            {
+                return bestUrl;
+            }
+        }
+
+        // 2. Fallback to entry "url" if thumbnail array not present
+        if (entry.TryGetProperty("url", out var urlProp) && urlProp.GetString() is { } directUrl && !string.IsNullOrWhiteSpace(directUrl))
+        {
+            return directUrl;
+        }
+
+        return null;
     }
 
     private async Task<ReelDownloadResult> DownloadReelAsync(
