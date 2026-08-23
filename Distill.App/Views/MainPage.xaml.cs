@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
+using WinRT.Interop;
 
 namespace Distill.App.Views;
 
@@ -50,5 +51,17 @@ public sealed partial class MainPage : Page
             ViewModel.AddJobCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    private async void BrowseVaultFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var hwnd = App.Current.MainWindow != null ? WindowNative.GetWindowHandle(App.Current.MainWindow) : nint.Zero;
+        await ViewModel.BrowseVaultFolderAsync(hwnd);
+    }
+
+    private async void BrowseWhisperModel_Click(object sender, RoutedEventArgs e)
+    {
+        var hwnd = App.Current.MainWindow != null ? WindowNative.GetWindowHandle(App.Current.MainWindow) : nint.Zero;
+        await ViewModel.BrowseWhisperModelFileAsync(hwnd);
     }
 }

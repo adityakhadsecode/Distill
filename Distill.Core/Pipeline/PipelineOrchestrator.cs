@@ -1,3 +1,4 @@
+using Distill.Core.Configuration;
 using Distill.Core.Downloaders;
 using Distill.Core.Formatting;
 using Distill.Core.Models;
@@ -5,6 +6,7 @@ using Distill.Core.Ocr;
 using Distill.Core.SpeechToText;
 using Distill.Core.VaultWriter;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Distill.Core.Pipeline;
 
@@ -19,6 +21,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
     private readonly ITranscriber _transcriber;
     private readonly INoteFormatter _noteFormatter;
     private readonly IVaultWriter _vaultWriter;
+    private readonly DistillSettings _settings;
     private readonly ILogger<PipelineOrchestrator>? _logger;
 
     public event EventHandler<PipelineJobChangedEventArgs>? JobChanged;
@@ -29,6 +32,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         ITranscriber transcriber,
         INoteFormatter noteFormatter,
         IVaultWriter vaultWriter,
+        IOptions<DistillSettings>? settings = null,
         ILogger<PipelineOrchestrator>? logger = null)
     {
         _downloader = downloader;
@@ -36,6 +40,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         _transcriber = transcriber;
         _noteFormatter = noteFormatter;
         _vaultWriter = vaultWriter;
+        _settings = settings?.Value ?? new DistillSettings();
         _logger = logger;
     }
 
@@ -121,6 +126,21 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             NotifyJobChanged(job);
 
             var markdownBody = await _noteFormatter.FormatAsync(rawContent, cancellationToken).ConfigureAwait(false);
+
+            // Optional raw content footer
+            if (_settings.AppendRawContentToNote && (!string.IsNullOrWhiteSpace(transcript) || ocrSegments.Count > 0))
+            {
+                markdownBody += "\n\n---\n\n<details>\n<summary><b>Original Extracted Content (OCR & Transcript)</b></summary>\n\n";
+                if (!string.IsNullOrWhiteSpace(transcript))
+                {
+                    markdownBody += $"**Speech Transcript:**\n> {transcript.Trim()}\n\n";
+                }
+                if (ocrSegments.Count > 0)
+                {
+                    markdownBody += "**Visual Text (OCR):**\n" + string.Join("\n\n---\n", ocrSegments) + "\n\n";
+                }
+                markdownBody += "</details>\n";
+            }
 
             // Step 4: Saving to Obsidian Vault
             job.ProgressPercent = 90;

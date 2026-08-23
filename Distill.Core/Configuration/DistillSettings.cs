@@ -1,7 +1,7 @@
 namespace Distill.Core.Configuration;
 
 /// <summary>
-/// Configuration options loaded from appsettings.json.
+/// Configuration options loaded from appsettings.json and managed through the UI.
 /// </summary>
 public class DistillSettings
 {
@@ -41,4 +41,24 @@ public class DistillSettings
     /// Spoken language hint for whisper transcription (default: "en" or "auto").
     /// </summary>
     public string WhisperLanguage { get; set; } = "en";
+
+    /// <summary>
+    /// Whether to automatically open distilled notes in Obsidian via URI protocol upon completion.
+    /// </summary>
+    public bool AutoOpenInObsidian { get; set; } = true;
+
+    /// <summary>
+    /// Maximum number of concurrent download and synthesis pipeline jobs.
+    /// </summary>
+    public int MaxConcurrentJobs { get; set; } = 2;
+
+    /// <summary>
+    /// Scene-change detection sensitivity threshold for ffmpeg frame extraction (0.1 to 0.9, default: 0.3).
+    /// </summary>
+    public double SceneChangeThreshold { get; set; } = 0.3;
+
+    /// <summary>
+    /// Whether to append raw OCR text and voice transcript in an expandable details footer inside the generated Markdown note.
+    /// </summary>
+    public bool AppendRawContentToNote { get; set; } = false;
 }

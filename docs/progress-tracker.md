@@ -4,12 +4,13 @@
 
 - **Phase 3: End-to-End Pipeline Integration & Polish (Completed)**
 - **Phase 4: Packaging & Distribution (Completed)**
+- **Phase 5: Enhanced Settings & Live Diagnostics (Completed)**
 
 ---
 
 ## Current Goal
 
-- Release and distribute Distill via standalone portable EXE and installable MSIX package.
+- Release and distribute Distill via standalone portable EXE and installable MSIX package with comprehensive system diagnostics, model discovery, and automation settings.
 
 ---
 
@@ -37,10 +38,16 @@
 - [x] Implemented `PipelineOrchestrator` in `Distill.Core.Pipeline` orchestrating full sequence (download -> OCR/STT -> Ollama distillation -> Obsidian vault save) with fine-grained progress events.
 - [x] Built WinUI 3 `MainPage` with Fluent `NavigationView`, Ingest Hero card, Real-time Job Queue `ListView`, and complete `Settings` management panel.
 - [x] Implemented background task job execution so UI remains 100% fluid and non-blocking during heavy AI/extraction workloads.
-- [x] Added comprehensive unit test suites covering all components (`PipelineOrchestratorTests`, `YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`) — **33 tests passing**.
 - [x] Built self-contained Release standalone executable package: `publish/Distill-Portable-x64/`.
 - [x] Generated signed, installable MSIX package with custom assets and certificates: `publish/Distill_1.0.0.0_x64.msix`.
-- [x] Created `build-packages.ps1` and `install-msix.ps1` automated delivery scripts.
+- [x] Implemented `ISystemHealthService` and `SystemHealthService` with live tool diagnostics, Ollama model discovery (`GET /api/tags`), Whisper model downloading from HuggingFace, and 1-click tool installation.
+- [x] Redesigned Settings Page in `MainPage.xaml` into 5 cards:
+  1. System Health & Local Tools (live status badges + 1-click update)
+  2. Obsidian Vault Destination (with native `FolderPicker` integration)
+  3. Ollama Local LLM (live connection indicator + auto-populated model dropdown)
+  4. Whisper.cpp STT (model presets + in-app downloader + `.bin` file picker)
+  5. Pipeline & Automation Preferences (Auto-open in Obsidian, max concurrent jobs, scene threshold slider, raw content details toggle)
+- [x] Added `SystemHealthServiceTests` unit test suite — **42 tests passing (100%)**.
 
 ---
 
@@ -68,9 +75,12 @@
   - *Rationale*: Running `yt-dlp --dump-single-json` inspects carousel entries individually; downloading image slides directly via `HttpClient` resolves the "no video formats found" yt-dlp error while preserving video download handling for mixed carousels.
 - **Decision 11: Dual Distribution Strategy (Portable EXE + Signed MSIX)**
   - *Rationale*: Providing both a self-contained portable directory (for immediate testing without installation) and an official signed MSIX package (with Start menu tile and system integration) gives users the best of both installation models.
+- **Decision 12: Real-time Diagnostics & In-App Asset Management**
+  - *Rationale*: Enabling users to check tool readiness, auto-discover Ollama models, download Whisper voice models, and pick vault folders with native dialogs in-app dramatically simplifies user onboarding and maintenance.
 
 ---
 
 ## Session Notes
 
-- MSIX package (`publish/Distill_1.0.0.0_x64.msix`) and portable build (`publish/Distill-Portable-x64`) generated and verified.
+- All 42 unit tests passing.
+- New Settings page and diagnostics system fully operational in both portable and MSIX distribution packages.

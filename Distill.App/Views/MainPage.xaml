@@ -137,7 +137,7 @@
                                     <!-- Top Row: Status Pill, Title, URL -->
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
+                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
@@ -206,13 +206,14 @@
                 </ListView>
             </Grid>
 
-            <!-- 2. SETTINGS VIEW -->
+            <!-- 2. ENHANCED SETTINGS VIEW -->
             <ScrollViewer x:Name="SettingsViewPanel" Visibility="Collapsed">
-                <StackPanel Spacing="20" MaxWidth="800" HorizontalAlignment="Left">
+                <StackPanel Spacing="24" MaxWidth="820" HorizontalAlignment="Left" Padding="0,0,0,40">
                     
+                    <!-- Header -->
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Settings &amp; Configuration" FontSize="22" FontWeight="SemiBold"/>
-                        <TextBlock Text="Configure local distillation models, speech transcriber, and Obsidian vault paths."
+                        <TextBlock Text="Settings &amp; Diagnostics" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="Manage local AI engines, speech transcriber models, Obsidian vault, and pipeline preferences."
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13"/>
                     </StackPanel>
 
@@ -223,45 +224,181 @@
                              Message="Configuration updated successfully and saved to appsettings.json."
                              IsClosable="True"/>
 
-                    <!-- Vault Settings Card -->
+                    <!-- CARD 1: SYSTEM HEALTH & LOCAL TOOLS -->
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Padding="20">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Obsidian Vault Destination" FontSize="15" FontWeight="SemiBold"/>
-                            <TextBlock Text="The directory or subfolder where distilled Markdown notes will be written."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
-                            
-                            <TextBox Header="Vault Folder Path"
-                                     PlaceholderText="e.g. C:\Users\Username\Documents\ObsidianVault\Instagram"
-                                     Text="{x:Bind ViewModel.VaultFolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <StackPanel Spacing="16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="System Health &amp; Local Tools" FontSize="15" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{x:Bind ViewModel.HealthStatusMessage, Mode=OneWay}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <Button Content="🔄 Refresh"
+                                            Command="{x:Bind ViewModel.RefreshHealthReportCommand}"
+                                            Padding="12,4"/>
+                                    <Button Content="⚡ Download / Update Tools"
+                                            Command="{x:Bind ViewModel.DownloadMissingToolsCommand}"
+                                            Padding="12,4"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Tool Status Rows -->
+                            <StackPanel Spacing="10">
+                                <!-- yt-dlp -->
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="yt-dlp (Downloader)" FontWeight="Medium" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.YtDlp.Details, Mode=OneWay}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- ffmpeg -->
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="ffmpeg (Audio &amp; Frames)" FontWeight="Medium" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.Ffmpeg.Details, Mode=OneWay}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- whisper.cpp -->
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="whisper.cpp (Speech-to-Text)" FontWeight="Medium" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.Whisper.Details, Mode=OneWay}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Windows Native OCR -->
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Windows OCR Engine" FontWeight="Medium" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.WindowsOcr.Details, Mode=OneWay}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Tool Update Progress -->
+                            <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.IsUpdatingTools, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                                <ProgressBar IsIndeterminate="True" Height="4"/>
+                                <TextBlock Text="{x:Bind ViewModel.ToolsUpdateStatus, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
-                    <!-- Ollama AI Settings Card -->
+                    <!-- CARD 2: OBSIDIAN VAULT DESTINATION -->
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Padding="20">
                         <StackPanel Spacing="14">
-                            <TextBlock Text="Ollama Local LLM Synthesis" FontSize="15" FontWeight="SemiBold"/>
-                            <TextBlock Text="Configure the local Ollama instance used to filter boilerplate and structure clean notes."
+                            <TextBlock Text="Obsidian Vault Destination" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="The directory or subfolder inside your Obsidian vault where distilled Markdown notes will be written."
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                            
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                            <TextBox Header="Ollama Model Name"
-                                     PlaceholderText="e.g. llama3.2:3b, qwen2.5:7b, mistral"
-                                     Text="{x:Bind ViewModel.OllamaModelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBox Grid.Column="0"
+                                         Header="Vault Folder Path"
+                                         PlaceholderText="e.g. C:\Users\Username\Documents\ObsidianVault\Instagram"
+                                         Text="{x:Bind ViewModel.VaultFolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-                            <TextBox Header="Ollama Endpoint URL"
-                                     PlaceholderText="http://localhost:11434"
-                                     Text="{x:Bind ViewModel.OllamaEndpoint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1"
+                                        Content="📁 Browse Folder..."
+                                        Click="BrowseVaultFolder_Click"
+                                        VerticalAlignment="Bottom"
+                                        Padding="16,6"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
-                    <!-- Whisper.cpp STT Settings Card -->
+                    <!-- CARD 3: OLLAMA LOCAL LLM SYNTHESIS -->
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="Ollama Local LLM Synthesis" FontSize="15" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Local AI inference used to deduplicate visual OCR and audio transcripts into structured Obsidian notes."
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                                </StackPanel>
+
+                                <!-- Live Connection Indicator -->
+                                <Border Grid.Column="1"
+                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="12"
+                                        Padding="10,4"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind ViewModel.OllamaStatusText, Mode=OneWay}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"/>
+                                </Border>
+                            </Grid>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox Grid.Column="0"
+                                         Header="Ollama Endpoint URL"
+                                         PlaceholderText="http://localhost:11434"
+                                         Text="{x:Bind ViewModel.OllamaEndpoint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <Button Grid.Column="1"
+                                        Content="🔄 Refresh Models"
+                                        Command="{x:Bind ViewModel.RefreshOllamaModelsCommand}"
+                                        VerticalAlignment="Bottom"
+                                        Padding="16,6"/>
+                            </Grid>
+
+                            <ComboBox Header="Ollama Model Name"
+                                      PlaceholderText="Select or type model name (e.g. llama3.2:3b, qwen2.5:7b)"
+                                      IsEditable="True"
+                                      HorizontalAlignment="Stretch"
+                                      ItemsSource="{x:Bind ViewModel.InstalledOllamaModels, Mode=OneWay}"
+                                      Text="{x:Bind ViewModel.OllamaModelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- CARD 4: WHISPER.CPP SPEECH-TO-TEXT -->
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
@@ -269,29 +406,115 @@
                             Padding="20">
                         <StackPanel Spacing="14">
                             <TextBlock Text="Whisper.cpp Speech-to-Text" FontSize="15" FontWeight="SemiBold"/>
-                            <TextBlock Text="Local offline audio transcription configuration for Instagram Reels."
+                            <TextBlock Text="Local offline audio transcription for Instagram Reels using whisper.cpp."
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
 
-                            <TextBox Header="Whisper Model Path"
-                                     PlaceholderText="models/ggml-base.en.bin"
-                                     Text="{x:Bind ViewModel.WhisperModelPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <!-- Model Selector & Actions -->
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                            <TextBox Header="CPU Threads"
-                                     PlaceholderText="4"
-                                     Text="{x:Bind ViewModel.WhisperThreadCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <ComboBox Grid.Column="0"
+                                          Header="Whisper Model Path / Preset"
+                                          PlaceholderText="models/ggml-base.en.bin"
+                                          IsEditable="True"
+                                          HorizontalAlignment="Stretch"
+                                          ItemsSource="{x:Bind ViewModel.PresetWhisperModels, Mode=OneWay}"
+                                          Text="{x:Bind ViewModel.WhisperModelPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-                            <TextBox Header="Language Hint"
-                                     PlaceholderText="en (or auto)"
-                                     Text="{x:Bind ViewModel.WhisperLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1"
+                                        Content="⬇ Download Model"
+                                        Command="{x:Bind ViewModel.DownloadWhisperModelCommand}"
+                                        VerticalAlignment="Bottom"
+                                        Padding="14,6"/>
+
+                                <Button Grid.Column="2"
+                                        Content="📁 Browse .bin"
+                                        Click="BrowseWhisperModel_Click"
+                                        VerticalAlignment="Bottom"
+                                        Padding="14,6"/>
+                            </Grid>
+
+                            <!-- Model Download Progress -->
+                            <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.IsDownloadingWhisperModel, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                                <ProgressBar Value="{x:Bind ViewModel.WhisperDownloadProgress, Mode=OneWay}" Height="6" CornerRadius="3"/>
+                                <TextBlock Text="{x:Bind ViewModel.WhisperDownloadStatus, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox Grid.Column="0"
+                                         Header="CPU Threads"
+                                         PlaceholderText="4"
+                                         Text="{x:Bind ViewModel.WhisperThreadCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBox Grid.Column="1"
+                                         Header="Language Hint"
+                                         PlaceholderText="en (or auto)"
+                                         Text="{x:Bind ViewModel.WhisperLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
-                    <!-- Save Action -->
-                    <Button Content="💾 Save Settings"
-                            Style="{StaticResource AccentButtonStyle}"
-                            Command="{x:Bind ViewModel.SaveSettingsCommand}"
-                            Padding="24,8"
-                            HorizontalAlignment="Left"/>
+                    <!-- CARD 5: PIPELINE & AUTOMATION PREFERENCES -->
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Pipeline &amp; Automation Preferences" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="Fine-tune background ingestion behavior, scene detection, and note formatting."
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+
+                            <!-- Auto-Open Toggle -->
+                            <ToggleSwitch Header="Auto-open note in Obsidian upon completion"
+                                          OffContent="Disabled"
+                                          OnContent="Enabled"
+                                          IsOn="{x:Bind ViewModel.AutoOpenInObsidian, Mode=TwoWay}"/>
+
+                            <!-- Append Raw Details Toggle -->
+                            <ToggleSwitch Header="Append raw transcript &amp; OCR text in note footer"
+                                          OffContent="Disabled"
+                                          OnContent="Enabled"
+                                          IsOn="{x:Bind ViewModel.AppendRawContentToNote, Mode=TwoWay}"/>
+
+                            <!-- Max Parallel Jobs -->
+                            <TextBox Header="Max Concurrent Ingestion Jobs"
+                                     PlaceholderText="2"
+                                     Text="{x:Bind ViewModel.MaxConcurrentJobs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <!-- Scene Detection Sensitivity Slider -->
+                            <StackPanel Spacing="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Scene-Change Detection Sensitivity" FontWeight="Medium" FontSize="13"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.SceneChangeThreshold, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                                </Grid>
+                                <Slider Minimum="0.1" Maximum="0.9" StepFrequency="0.05"
+                                        Value="{x:Bind ViewModel.SceneChangeThreshold, Mode=TwoWay}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Save Action Bar -->
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Content="💾 Save Settings"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Command="{x:Bind ViewModel.SaveSettingsCommand}"
+                                Padding="28,9"/>
+                    </StackPanel>
+
                 </StackPanel>
             </ScrollViewer>
 

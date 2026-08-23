@@ -1,6 +1,7 @@
 using Distill.App.ViewModels;
 using Distill.App.Views;
 using Distill.Core.Configuration;
+using Distill.Core.Diagnostics;
 using Distill.Core.Downloaders;
 using Distill.Core.Formatting;
 using Distill.Core.Ocr;
@@ -21,6 +22,7 @@ namespace Distill.App;
 public partial class App : Application
 {
     private Window? _mainWindow;
+    public Window? MainWindow => _mainWindow;
 
     /// <summary>
     /// Gets the current <see cref="App"/> instance in use.
@@ -83,6 +85,7 @@ public partial class App : Application
         services.AddHttpClient<INoteFormatter, OllamaNoteFormatter>();
         services.AddSingleton<IVaultWriter, ObsidianVaultWriter>();
         services.AddSingleton<IPipelineOrchestrator, PipelineOrchestrator>();
+        services.AddSingleton<ISystemHealthService, SystemHealthService>();
 
         // ViewModels
         services.AddTransient<MainViewModel>();
