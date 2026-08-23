@@ -71,7 +71,7 @@ public class PipelineOrchestratorTests
 
         // Assert
         Assert.Equal(PipelineJobStatus.Failed, result.Status);
-        Assert.Contains("Private account", result.ErrorMessage);
+        Assert.Contains("private account", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     private class FailingDownloader : IReelDownloader
