@@ -3,12 +3,13 @@
 ## Current Phase
 
 - **Phase 3: End-to-End Pipeline Integration & Polish (Completed)**
+- **Phase 4: Packaging & Distribution (Completed)**
 
 ---
 
 ## Current Goal
 
-- Ship fully functional, production-ready WinUI 3 desktop application with real-time pipeline job queueing, Settings persistence, and direct Obsidian launching.
+- Release and distribute Distill via standalone portable EXE and installable MSIX package.
 
 ---
 
@@ -37,12 +38,9 @@
 - [x] Built WinUI 3 `MainPage` with Fluent `NavigationView`, Ingest Hero card, Real-time Job Queue `ListView`, and complete `Settings` management panel.
 - [x] Implemented background task job execution so UI remains 100% fluid and non-blocking during heavy AI/extraction workloads.
 - [x] Added comprehensive unit test suites covering all components (`PipelineOrchestratorTests`, `YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`) — **33 tests passing**.
-
----
-
-## In Progress
-
-- Production verification and packaging.
+- [x] Built self-contained Release standalone executable package: `publish/Distill-Portable-x64/`.
+- [x] Generated signed, installable MSIX package with custom assets and certificates: `publish/Distill_1.0.0.0_x64.msix`.
+- [x] Created `build-packages.ps1` and `install-msix.ps1` automated delivery scripts.
 
 ---
 
@@ -68,10 +66,11 @@
   - *Rationale*: `PipelineOrchestrator` fires `JobChanged` events as each phase completes; `MainViewModel` updates observable items via `DispatcherQueue` on background worker tasks, ensuring the UI is never blocked by video downloads or AI inference.
 - **Decision 10: Metadata Dump & Direct HTTP Carousel Ingestion**
   - *Rationale*: Running `yt-dlp --dump-single-json` inspects carousel entries individually; downloading image slides directly via `HttpClient` resolves the "no video formats found" yt-dlp error while preserving video download handling for mixed carousels.
+- **Decision 11: Dual Distribution Strategy (Portable EXE + Signed MSIX)**
+  - *Rationale*: Providing both a self-contained portable directory (for immediate testing without installation) and an official signed MSIX package (with Start menu tile and system integration) gives users the best of both installation models.
 
 ---
 
 ## Session Notes
 
-- Carousel post download path fixed and verified with 3 dedicated mock unit tests.
-- Application recompiled and running on desktop.
+- MSIX package (`publish/Distill_1.0.0.0_x64.msix`) and portable build (`publish/Distill-Portable-x64`) generated and verified.
