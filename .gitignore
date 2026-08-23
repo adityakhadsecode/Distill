@@ -1,0 +1,48 @@
+## Visual Studio / .NET Build Artifacts
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+_ReSharper*/
+*.suo
+*.userprefs
+*.pidb
+*.booproj
+*.svclog
+
+## Windows App SDK / WinUI
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+
+## Test & Coverage
+TestResults/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.visualstudio.g.props
+*.visualstudio.g.targets
+
+## Temporary Data & Local Scratch
+temp/
+scratch/
+*.log
+*.tmp
+
+## Local Config Overrides
+appsettings.Development.json
+appsettings.local.json
+local.settings.json
+
+## OS Generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
