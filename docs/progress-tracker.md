@@ -2,14 +2,13 @@
 
 ## Current Phase
 
-- **Phase 2: Extraction & Processing Engine Implementations (Completed)**
-- **Phase 3: End-to-End Pipeline Integration & Polish (In Progress)**
+- **Phase 3: End-to-End Pipeline Integration & Polish (Completed)**
 
 ---
 
 ## Current Goal
 
-- Deliver end-to-end user experience, UI feedback indicators, settings management, and automated end-to-end integration tests.
+- Ship fully functional, production-ready WinUI 3 desktop application with real-time pipeline job queueing, Settings persistence, and direct Obsidian launching.
 
 ---
 
@@ -33,21 +32,16 @@
 - [x] Implemented `WhisperCppTranscriber` wrapping `whisper-cli.exe` with settings-based model path, thread count, language hints, timestamp stripping, diagnostic filtering, and graceful silent audio handling.
 - [x] Implemented `OllamaNoteFormatter` calling `POST /api/generate` with anti-boilerplate distillation prompt templates, retry-once on failure, timeout handling, and `OllamaConnectionException`.
 - [x] Implemented `ObsidianVaultWriter` with heading-based title extraction, filesystem slug sanitization, collision suffix resolution, YAML frontmatter formatting, and `obsidian://` direct URI generation.
-- [x] Added unit test suites for all pipeline components (`YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`).
+- [x] Implemented `PipelineOrchestrator` in `Distill.Core.Pipeline` orchestrating full sequence (download -> OCR/STT -> Ollama distillation -> Obsidian vault save) with fine-grained progress events.
+- [x] Built WinUI 3 `MainPage` with Fluent `NavigationView`, Ingest Hero card, Real-time Job Queue `ListView`, and complete `Settings` management panel.
+- [x] Implemented background task job execution so UI remains 100% fluid and non-blocking during heavy AI/extraction workloads.
+- [x] Added comprehensive unit test suites covering all components (`PipelineOrchestratorTests`, `YtDlpReelDownloaderTests`, `WindowsMediaOcrExtractorTests`, `WhisperCppTranscriberTests`, `OllamaNoteFormatterTests`, `ObsidianVaultWriterTests`).
 
 ---
 
 ## In Progress
 
-- Phase 3 End-to-End Pipeline Polish & Settings View.
-
----
-
-## Next Up
-
-- **Phase 3**:
-  - Add Settings dialog/page in WinUI 3 for live configuration of Obsidian vault path, Ollama model, and whisper binary.
-  - Add progress percentage bar and detailed pipeline stage status indicators.
+- Production verification and packaging.
 
 ---
 
@@ -69,10 +63,12 @@
   - *Rationale*: `OllamaNoteFormatter` uses `stream: false` with single-retry resilience and clear diagnostics directing the user to start `ollama serve` if offline.
 - **Decision 8: Collision-Free Slugged Vault Writer**
   - *Rationale*: Derives slugs from the synthesized note's H1 title, applies character sanitization, and appends numeric suffixes upon collision, maintaining full compatibility with Obsidian links.
+- **Decision 9: Event-Driven Non-Blocking Pipeline Orchestration**
+  - *Rationale*: `PipelineOrchestrator` fires `JobChanged` events as each phase completes; `MainViewModel` updates observable items via `DispatcherQueue` on background worker tasks, ensuring the UI is never blocked by video downloads or AI inference.
 
 ---
 
 ## Session Notes
 
-- All 5 core pipeline implementations complete and connected in `Distill.App` DI container.
-- All unit test suites passing.
+- UI layer complete with real-time job cards, progress bars, and Settings view.
+- Pushed and synchronized to GitHub.

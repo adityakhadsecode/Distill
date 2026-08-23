@@ -5,74 +5,296 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:Distill.App.ViewModels"
+    xmlns:converters="using:Distill.App.Converters"
     mc:Ignorable="d">
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="32">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <Page.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+        <converters:StatusToBrushConverter x:Key="StatusToBrushConverter"/>
+    </Page.Resources>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,24">
-            <TextBlock Text="Distill" FontSize="28" FontWeight="SemiBold"/>
-            <TextBlock Text="Local-first Instagram Reel and Post extractor for your Obsidian Vault." 
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="14"/>
-        </StackPanel>
+    <NavigationView x:Name="MainNavView"
+                    PaneTitle="Distill"
+                    IsBackButtonVisible="Collapsed"
+                    IsSettingsVisible="False"
+                    PaneDisplayMode="LeftCompact"
+                    ItemInvoked="MainNavView_ItemInvoked"
+                    Loaded="MainNavView_Loaded">
+        
+        <NavigationView.MenuItems>
+            <NavigationViewItem x:Name="NavQueue" Content="Distill Queue" Tag="Queue" IsSelected="True">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE8FD;"/>
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            
+            <NavigationViewItem x:Name="NavSettings" Content="Settings" Tag="Settings">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE713;"/>
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
 
-        <!-- Ingest Section -->
-        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" 
-                CornerRadius="8" Padding="20" Margin="0,0,0,16">
-            <StackPanel Spacing="16">
-                <TextBlock Text="Instagram Post or Reel URL" FontWeight="Medium"/>
-                
-                <Grid ColumnSpacing="12">
+        <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="28,20,28,20">
+            
+            <!-- 1. QUEUE & INGEST VIEW -->
+            <Grid x:Name="QueueViewPanel" Visibility="Visible">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Hero Ingest Card -->
+                <Border Grid.Row="0"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20"
+                        Margin="0,0,0,20">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Extract Instagram Knowledge" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="Paste any Instagram Reel or Carousel URL to extract speech, OCR visuals, and create notes in Obsidian."
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13"/>
+                        </StackPanel>
+
+                        <Grid ColumnSpacing="12" Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0"
+                                     x:Name="UrlInputBox"
+                                     PlaceholderText="Paste Instagram link (e.g. https://www.instagram.com/reel/... or /p/...)"
+                                     Text="{x:Bind ViewModel.InstagramUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     KeyDown="UrlInputBox_KeyDown"
+                                     VerticalAlignment="Center"/>
+
+                            <Button Grid.Column="1"
+                                    Content="⚡ Add to Queue"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Command="{x:Bind ViewModel.AddJobCommand}"
+                                    Padding="20,7"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Queue Header -->
+                <Grid Grid.Row="1" Margin="4,0,4,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBox Grid.Column="0" 
-                             PlaceholderText="Paste https://www.instagram.com/p/... or /reel/..." 
-                             Text="{x:Bind ViewModel.InstagramUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Active Queue" FontSize="16" FontWeight="SemiBold"/>
+                    </StackPanel>
 
-                    <Button Grid.Column="1" 
-                            Content="Distill Note" 
-                            Style="{StaticResource AccentButtonStyle}"
-                            Command="{x:Bind ViewModel.DistillCommand}" 
-                            Padding="20,6"/>
+                    <Button Grid.Column="1"
+                            Content="Clear Completed"
+                            Command="{x:Bind ViewModel.ClearCompletedCommand}"
+                            Visibility="{x:Bind ViewModel.HasJobs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                            Padding="12,4"/>
                 </Grid>
-            </StackPanel>
-        </Border>
 
-        <!-- Status & Progress -->
-        <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" 
-                CornerRadius="8" Padding="20" Margin="0,0,0,16">
-            <StackPanel Spacing="12">
-                <TextBlock Text="Pipeline Status" FontWeight="Medium"/>
-                
-                <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" 
-                             Visibility="{x:Bind ViewModel.IsProcessing, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+                <!-- Empty State -->
+                <StackPanel Grid.Row="2"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            Spacing="12"
+                            Visibility="{x:Bind ViewModel.HasNoJobs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <FontIcon Glyph="&#xE8FD;" FontSize="42" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                    <TextBlock Text="No active jobs in queue" FontSize="16" FontWeight="Medium"
+                               HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="Paste an Instagram Reel or Carousel URL above to begin distillation."
+                               FontSize="13" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center"/>
+                </StackPanel>
 
-                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" 
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
-                           TextWrapping="Wrap"/>
+                <!-- Jobs ListView -->
+                <ListView Grid.Row="2"
+                          ItemsSource="{x:Bind ViewModel.Jobs, Mode=OneWay}"
+                          SelectionMode="None"
+                          Visibility="{x:Bind ViewModel.HasJobs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                          Padding="0,0,0,20">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0,0,0,12"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PipelineJobItemViewModel">
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16">
+                                <StackPanel Spacing="10">
+                                    <!-- Top Row: Status Pill, Title, URL -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
 
-                <Button Content="Open in Obsidian" 
-                        Visibility="{x:Bind ViewModel.CanOpenInObsidian, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
-                        Command="{x:Bind ViewModel.OpenInObsidianCommand}"
-                        HorizontalAlignment="Left"/>
-            </StackPanel>
-        </Border>
+                                        <!-- Status Badge Pill -->
+                                        <Border Grid.Column="0"
+                                                Background="{x:Bind Status, Mode=OneWay, Converter={StaticResource StatusToBrushConverter}}"
+                                                CornerRadius="12"
+                                                Padding="10,3"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind StatusBadgeText, Mode=OneWay}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="White"/>
+                                        </Border>
 
-        <!-- Information / Footer Area -->
-        <Grid Grid.Row="3" VerticalAlignment="Bottom">
-            <TextBlock Text="Processing runs 100% locally via yt-dlp, ffmpeg, Windows.Media.Ocr, whisper.cpp, and Ollama." 
-                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" FontSize="12"/>
+                                        <!-- Title / URL -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Title, Mode=OneWay}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="14"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{x:Bind Url, Mode=OneWay}"
+                                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Status Message & Progress -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   FontSize="12"/>
+
+                                        <ProgressBar Value="{x:Bind ProgressPercent, Mode=OneWay}"
+                                                     IsIndeterminate="{x:Bind IsActive, Mode=OneWay}"
+                                                     Visibility="{x:Bind IsDone, Mode=OneWay, Converter={StaticResource BoolToVisConverter}, ConverterParameter=invert}"
+                                                     Height="4"
+                                                     CornerRadius="2"/>
+                                    </StackPanel>
+
+                                    <!-- Error Callout if Failed -->
+                                    <InfoBar IsOpen="{x:Bind IsFailed, Mode=OneWay}"
+                                             Severity="Error"
+                                             Title="Processing Error"
+                                             Message="{x:Bind ErrorMessage, Mode=OneWay}"
+                                             IsClosable="False"/>
+
+                                    <!-- Actions when Done -->
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="10"
+                                                Visibility="{x:Bind IsDone, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                                        <Button Content="📝 Open in Obsidian"
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                Command="{x:Bind OpenInObsidianCommand}"
+                                                Padding="14,6"/>
+
+                                        <Button Content="📁 View File"
+                                                Command="{x:Bind OpenFileCommand}"
+                                                Padding="14,6"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+
+            <!-- 2. SETTINGS VIEW -->
+            <ScrollViewer x:Name="SettingsViewPanel" Visibility="Collapsed">
+                <StackPanel Spacing="20" MaxWidth="800" HorizontalAlignment="Left">
+                    
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Settings &amp; Configuration" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="Configure local distillation models, speech transcriber, and Obsidian vault paths."
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13"/>
+                    </StackPanel>
+
+                    <!-- Saved Notification -->
+                    <InfoBar IsOpen="{x:Bind ViewModel.IsSettingsSavedVisible, Mode=OneWay}"
+                             Severity="Success"
+                             Title="Settings Saved"
+                             Message="Configuration updated successfully and saved to appsettings.json."
+                             IsClosable="True"/>
+
+                    <!-- Vault Settings Card -->
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Obsidian Vault Destination" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="The directory or subfolder where distilled Markdown notes will be written."
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                            
+                            <TextBox Header="Vault Folder Path"
+                                     PlaceholderText="e.g. C:\Users\Username\Documents\ObsidianVault\Instagram"
+                                     Text="{x:Bind ViewModel.VaultFolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Ollama AI Settings Card -->
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="14">
+                            <TextBlock Text="Ollama Local LLM Synthesis" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="Configure the local Ollama instance used to filter boilerplate and structure clean notes."
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+
+                            <TextBox Header="Ollama Model Name"
+                                     PlaceholderText="e.g. llama3.2:3b, qwen2.5:7b, mistral"
+                                     Text="{x:Bind ViewModel.OllamaModelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBox Header="Ollama Endpoint URL"
+                                     PlaceholderText="http://localhost:11434"
+                                     Text="{x:Bind ViewModel.OllamaEndpoint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Whisper.cpp STT Settings Card -->
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="14">
+                            <TextBlock Text="Whisper.cpp Speech-to-Text" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="Local offline audio transcription configuration for Instagram Reels."
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+
+                            <TextBox Header="Whisper Model Path"
+                                     PlaceholderText="models/ggml-base.en.bin"
+                                     Text="{x:Bind ViewModel.WhisperModelPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBox Header="CPU Threads"
+                                     PlaceholderText="4"
+                                     Text="{x:Bind ViewModel.WhisperThreadCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBox Header="Language Hint"
+                                     PlaceholderText="en (or auto)"
+                                     Text="{x:Bind ViewModel.WhisperLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Save Action -->
+                    <Button Content="💾 Save Settings"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Command="{x:Bind ViewModel.SaveSettingsCommand}"
+                            Padding="24,8"
+                            HorizontalAlignment="Left"/>
+                </StackPanel>
+            </ScrollViewer>
+
         </Grid>
-    </Grid>
+    </NavigationView>
 </Page>

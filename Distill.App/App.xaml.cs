@@ -4,6 +4,7 @@ using Distill.Core.Configuration;
 using Distill.Core.Downloaders;
 using Distill.Core.Formatting;
 using Distill.Core.Ocr;
+using Distill.Core.Pipeline;
 using Distill.Core.Process;
 using Distill.Core.SpeechToText;
 using Distill.Core.VaultWriter;
@@ -81,6 +82,7 @@ public partial class App : Application
         services.AddSingleton<ITranscriber, WhisperCppTranscriber>();
         services.AddHttpClient<INoteFormatter, OllamaNoteFormatter>();
         services.AddSingleton<IVaultWriter, ObsidianVaultWriter>();
+        services.AddSingleton<IPipelineOrchestrator, PipelineOrchestrator>();
 
         // ViewModels
         services.AddTransient<MainViewModel>();

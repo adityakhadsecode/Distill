@@ -1,198 +1,204 @@
-using System.Diagnostics;
+using System.Collections.ObjectModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Distill.Core.Configuration;
-using Distill.Core.Downloaders;
-using Distill.Core.Formatting;
-using Distill.Core.Models;
-using Distill.Core.Ocr;
-using Distill.Core.SpeechToText;
-using Distill.Core.VaultWriter;
+using Distill.Core.Pipeline;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.UI.Dispatching;
 
 namespace Distill.App.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    private readonly IReelDownloader _downloader;
-    private readonly ITextExtractor _textExtractor;
-    private readonly ITranscriber _transcriber;
-    private readonly INoteFormatter _noteFormatter;
-    private readonly IVaultWriter _vaultWriter;
+    private readonly IPipelineOrchestrator _orchestrator;
     private readonly DistillSettings _settings;
     private readonly ILogger<MainViewModel>? _logger;
+    private readonly DispatcherQueue? _dispatcherQueue;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DistillCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddJobCommand))]
     private string _instagramUrl = string.Empty;
 
     [ObservableProperty]
-    private string _statusMessage = "Ready to distill notes.";
+    private ObservableCollection<PipelineJobItemViewModel> _jobs = [];
+
+    // Settings View Properties
+    [ObservableProperty]
+    private string _vaultFolderPath;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DistillCommand))]
-    private bool _isProcessing;
+    private string _ollamaModelName;
 
     [ObservableProperty]
-    private string? _generatedNotePath;
+    private string _ollamaEndpoint;
 
     [ObservableProperty]
-    private bool _canOpenInObsidian;
+    private string _whisperModelPath;
+
+    [ObservableProperty]
+    private int _whisperThreadCount;
+
+    [ObservableProperty]
+    private string _whisperLanguage;
+
+    [ObservableProperty]
+    private bool _isSettingsSavedVisible;
+
+    public bool HasJobs => Jobs.Count > 0;
+    public bool HasNoJobs => Jobs.Count == 0;
+    public int ActiveJobsCount => Jobs.Count(j => j.IsActive);
 
     public MainViewModel(
-        IReelDownloader downloader,
-        ITextExtractor textExtractor,
-        ITranscriber transcriber,
-        INoteFormatter noteFormatter,
-        IVaultWriter vaultWriter,
+        IPipelineOrchestrator orchestrator,
         IOptions<DistillSettings> settings,
         ILogger<MainViewModel>? logger = null)
     {
-        _downloader = downloader;
-        _textExtractor = textExtractor;
-        _transcriber = transcriber;
-        _noteFormatter = noteFormatter;
-        _vaultWriter = vaultWriter;
+        _orchestrator = orchestrator;
         _settings = settings.Value;
         _logger = logger;
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
+        // Load settings values
+        _vaultFolderPath = _settings.VaultFolderPath;
+        _ollamaModelName = _settings.OllamaModelName;
+        _ollamaEndpoint = _settings.OllamaEndpoint;
+        _whisperModelPath = _settings.WhisperModelPath;
+        _whisperThreadCount = _settings.WhisperThreadCount;
+        _whisperLanguage = _settings.WhisperLanguage;
+
+        // Subscribe to pipeline orchestrator job changes
+        _orchestrator.JobChanged += OnPipelineJobChanged;
     }
 
-    private bool CanDistill => !IsProcessing && !string.IsNullOrWhiteSpace(InstagramUrl);
+    private bool CanAddJob => !string.IsNullOrWhiteSpace(InstagramUrl);
 
-    [RelayCommand(CanExecute = nameof(CanDistill))]
-    private async Task DistillAsync(CancellationToken cancellationToken)
+    [RelayCommand(CanExecute = nameof(CanAddJob))]
+    private void AddJob()
     {
-        DownloadResult? downloadResult = null;
-        try
+        var rawUrl = InstagramUrl.Trim();
+        if (string.IsNullOrWhiteSpace(rawUrl)) return;
+
+        var job = new PipelineJob
         {
-            IsProcessing = true;
-            CanOpenInObsidian = false;
-            GeneratedNotePath = null;
-            StatusMessage = "1/5: Downloading media from Instagram...";
+            Url = rawUrl,
+            Status = PipelineJobStatus.Queued,
+            StatusMessage = "Queued in distillation pipeline..."
+        };
 
-            downloadResult = await _downloader.DownloadAsync(InstagramUrl, cancellationToken);
+        var jobVm = new PipelineJobItemViewModel(job);
+        Jobs.Insert(0, jobVm);
+        InstagramUrl = string.Empty;
 
-            StatusMessage = "2/5: Extracting text & audio speech...";
-            var ocrSegments = new List<string>();
-            var transcript = string.Empty;
-            var sourceType = SourceType.Post;
+        OnPropertyChanged(nameof(HasJobs));
+        OnPropertyChanged(nameof(HasNoJobs));
+        OnPropertyChanged(nameof(ActiveJobsCount));
 
-            if (downloadResult is PostDownloadResult postResult)
+        // Fire-and-forget background task so UI stays completely responsive
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                sourceType = SourceType.Post;
-                var ocrBatch = await _textExtractor.ExtractTextFromMultipleAsync(postResult.ImageFilePaths, cancellationToken);
-                foreach (var imgPath in postResult.ImageFilePaths)
-                {
-                    if (ocrBatch.TryGetValue(imgPath, out var text) && !string.IsNullOrWhiteSpace(text))
-                    {
-                        ocrSegments.Add(text);
-                    }
-                }
+                await _orchestrator.RunJobAsync(job).ConfigureAwait(false);
             }
-            else if (downloadResult is ReelDownloadResult reelResult)
+            catch (Exception ex)
             {
-                sourceType = SourceType.Reel;
-                var ocrBatch = await _textExtractor.ExtractTextFromMultipleAsync(reelResult.FrameFilePaths, cancellationToken);
-                foreach (var framePath in reelResult.FrameFilePaths)
-                {
-                    if (ocrBatch.TryGetValue(framePath, out var text) && !string.IsNullOrWhiteSpace(text))
-                    {
-                        ocrSegments.Add(text);
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(reelResult.AudioFilePath))
-                {
-                    transcript = await _transcriber.TranscribeAsync(reelResult.AudioFilePath, cancellationToken);
-                }
+                _logger?.LogError(ex, "Unhandled exception in background job execution for {Url}", rawUrl);
             }
-
-            var rawContent = new RawExtractedContent
-            {
-                SourceUrl = InstagramUrl,
-                SourceType = sourceType,
-                OcrTextSegments = ocrSegments,
-                TranscriptText = transcript,
-                Caption = downloadResult.Caption,
-                Title = downloadResult.Title,
-                Author = downloadResult.Author
-            };
-
-            var noteMetadata = new NoteMetadata
-            {
-                Title = downloadResult.Title ?? "Instagram Distilled Note",
-                SourceUrl = InstagramUrl,
-                Author = downloadResult.Author,
-                SourceType = sourceType,
-                CapturedAtUtc = DateTime.UtcNow,
-                Tags = ["instagram", sourceType == SourceType.Reel ? "reel" : "post", "distilled"]
-            };
-
-            StatusMessage = "3/5: Synthesizing notes with Ollama LLM...";
-            var markdownBody = await _noteFormatter.FormatAsync(rawContent, cancellationToken);
-
-            StatusMessage = "4/5: Writing note to Obsidian vault...";
-            var createdPath = await _vaultWriter.WriteNoteAsync(markdownBody, noteMetadata, cancellationToken);
-
-            GeneratedNotePath = createdPath;
-            CanOpenInObsidian = true;
-            StatusMessage = $"5/5: Done! Saved to: {Path.GetFileName(createdPath)}";
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "Error processing Instagram URL {Url}", InstagramUrl);
-            StatusMessage = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            // Clean up temporary download artifacts
-            downloadResult?.Cleanup();
-            IsProcessing = false;
-        }
+        });
     }
 
     [RelayCommand]
-    private void OpenInObsidian()
+    private void ClearCompleted()
     {
-        if (string.IsNullOrWhiteSpace(GeneratedNotePath)) return;
+        var completedList = Jobs.Where(j => j.IsDone || j.IsFailed).ToList();
+        foreach (var item in completedList)
+        {
+            Jobs.Remove(item);
+        }
 
+        OnPropertyChanged(nameof(HasJobs));
+        OnPropertyChanged(nameof(HasNoJobs));
+        OnPropertyChanged(nameof(ActiveJobsCount));
+    }
+
+    [RelayCommand]
+    private async Task SaveSettingsAsync()
+    {
+        // Update in-memory settings
+        _settings.VaultFolderPath = VaultFolderPath?.Trim() ?? string.Empty;
+        _settings.OllamaModelName = OllamaModelName?.Trim() ?? "llama3.2:3b";
+        _settings.OllamaEndpoint = OllamaEndpoint?.Trim() ?? "http://localhost:11434";
+        _settings.WhisperModelPath = WhisperModelPath?.Trim() ?? "models/ggml-base.en.bin";
+        _settings.WhisperThreadCount = WhisperThreadCount > 0 ? WhisperThreadCount : 4;
+        _settings.WhisperLanguage = WhisperLanguage?.Trim() ?? "en";
+
+        // Persist to appsettings.json in application folder
         try
         {
-            var obsidianUri = _vaultWriter.BuildObsidianUri(GeneratedNotePath);
-            if (!string.IsNullOrWhiteSpace(obsidianUri))
+            var appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+            JsonObject jsonRoot;
+
+            if (File.Exists(appSettingsPath))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = obsidianUri,
-                    UseShellExecute = true
-                });
+                var existingJson = await File.ReadAllTextAsync(appSettingsPath);
+                jsonRoot = JsonNode.Parse(existingJson)?.AsObject() ?? [];
             }
             else
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = GeneratedNotePath,
-                    UseShellExecute = true
-                });
+                jsonRoot = [];
             }
+
+            var distillNode = new JsonObject
+            {
+                ["VaultFolderPath"] = _settings.VaultFolderPath,
+                ["OllamaModelName"] = _settings.OllamaModelName,
+                ["OllamaEndpoint"] = _settings.OllamaEndpoint,
+                ["WhisperBinaryPath"] = _settings.WhisperBinaryPath,
+                ["WhisperModelPath"] = _settings.WhisperModelPath,
+                ["WhisperThreadCount"] = _settings.WhisperThreadCount,
+                ["WhisperLanguage"] = _settings.WhisperLanguage
+            };
+
+            jsonRoot[DistillSettings.SectionName] = distillNode;
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            await File.WriteAllTextAsync(appSettingsPath, jsonRoot.ToJsonString(options));
+
+            IsSettingsSavedVisible = true;
+            _logger?.LogInformation("Settings saved successfully to {Path}", appSettingsPath);
+
+            // Auto-hide success badge after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _dispatcherQueue?.TryEnqueue(() => IsSettingsSavedVisible = false);
+            });
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Failed to open via obsidian:// URI. Attempting direct file open.");
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = GeneratedNotePath,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception innerEx)
-            {
-                _logger?.LogError(innerEx, "Failed to open note file");
-                StatusMessage = $"Failed to open note: {innerEx.Message}";
-            }
+            _logger?.LogError(ex, "Failed to persist settings to appsettings.json");
+        }
+    }
+
+    private void OnPipelineJobChanged(object? sender, PipelineJobChangedEventArgs e)
+    {
+        void UpdateJobUi()
+        {
+            var targetVm = Jobs.FirstOrDefault(j => j.Id == e.Job.Id);
+            targetVm?.UpdateFrom(e.Job);
+
+            OnPropertyChanged(nameof(ActiveJobsCount));
+        }
+
+        if (_dispatcherQueue != null && !_dispatcherQueue.HasThreadAccess)
+        {
+            _dispatcherQueue.TryEnqueue(UpdateJobUi);
+        }
+        else
+        {
+            UpdateJobUi();
         }
     }
 }
