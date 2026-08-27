@@ -99,3 +99,4 @@
 - [x] Zero compilation warnings and zero errors across the entire solution.
 - [x] Built and signed installable MSIX package (`publish/Distill_1.0.0.0_x64.msix`) with self-signed certificate (`publish/Distill_DevCert.cer`).
 - [x] Published self-contained portable executable build (`publish/Distill-Portable-x64/Distill.App.exe`).
+- [x] Published official GitHub Release [v1.0.0](https://github.com/adityakhadsecode/Distill/releases/tag/v1.0.0) with attached MSIX installer, portable zip archive, and dev certificate.
