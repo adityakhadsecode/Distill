@@ -10,15 +10,27 @@ public partial class PipelineJobItemViewModel : ObservableObject
     public Guid Id { get; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     private string _url;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     private string _title;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsActive))]
+    [NotifyPropertyChangedFor(nameof(IsDone))]
+    [NotifyPropertyChangedFor(nameof(IsFailed))]
+    [NotifyPropertyChangedFor(nameof(IsQueued))]
+    [NotifyPropertyChangedFor(nameof(StatusBadgeText))]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusGlyph))]
+    [NotifyPropertyChangedFor(nameof(StageStepText))]
+    [NotifyPropertyChangedFor(nameof(ProgressText))]
     private PipelineJobStatus _status;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Progress))]
     private int _progressPercent;
 
     [ObservableProperty]
@@ -39,6 +51,20 @@ public partial class PipelineJobItemViewModel : ObservableObject
     [ObservableProperty]
     private DateTime? _completedAt;
 
+    [ObservableProperty]
+    private string _rawOcrPreview = string.Empty;
+
+    [ObservableProperty]
+    private string _rawTranscriptPreview = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDetailsExpanded;
+
+    public string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? Url : Title;
+    public double Progress => ProgressPercent;
+    public string ProgressText => StageStepText;
+    public string StatusText => StatusBadgeText;
+
     public bool IsActive => Status is PipelineJobStatus.Downloading or PipelineJobStatus.Extracting or PipelineJobStatus.Formatting;
     public bool IsDone => Status == PipelineJobStatus.Done;
     public bool IsFailed => Status == PipelineJobStatus.Failed;
@@ -49,11 +75,35 @@ public partial class PipelineJobItemViewModel : ObservableObject
         PipelineJobStatus.Queued => "Queued",
         PipelineJobStatus.Downloading => "Downloading",
         PipelineJobStatus.Extracting => "Extracting",
-        PipelineJobStatus.Formatting => "AI Distilling",
-        PipelineJobStatus.Done => "Done",
+        PipelineJobStatus.Formatting => "Distilling",
+        PipelineJobStatus.Done => "Completed",
         PipelineJobStatus.Failed => "Failed",
         _ => Status.ToString()
     };
+
+    public string StatusGlyph => Status switch
+    {
+        PipelineJobStatus.Queued => "\uE823",      // Clock
+        PipelineJobStatus.Downloading => "\uE896", // Download
+        PipelineJobStatus.Extracting => "\uE8B7",  // Reading / OCR
+        PipelineJobStatus.Formatting => "\uE946",  // Processing / AI
+        PipelineJobStatus.Done => "\uE73E",        // CheckMark
+        PipelineJobStatus.Failed => "\uE711",      // Error / Cancel
+        _ => "\uE712"
+    };
+
+    public string StageStepText => Status switch
+    {
+        PipelineJobStatus.Queued => "Queued in pipeline",
+        PipelineJobStatus.Downloading => "Downloading media & metadata",
+        PipelineJobStatus.Extracting => "Running OCR & speech transcription",
+        PipelineJobStatus.Formatting => "Synthesizing note via Ollama",
+        PipelineJobStatus.Done => "Note saved to Obsidian",
+        PipelineJobStatus.Failed => "Failed to process",
+        _ => StatusMessage
+    };
+
+    public string FormattedTime => CreatedAt.ToLocalTime().ToString("t");
 
     public PipelineJobItemViewModel(PipelineJob job)
     {
@@ -84,12 +134,6 @@ public partial class PipelineJobItemViewModel : ObservableObject
         GeneratedNotePath = job.GeneratedNotePath;
         ObsidianUri = job.ObsidianUri;
         CompletedAt = job.CompletedAt;
-
-        OnPropertyChanged(nameof(IsActive));
-        OnPropertyChanged(nameof(IsDone));
-        OnPropertyChanged(nameof(IsFailed));
-        OnPropertyChanged(nameof(IsQueued));
-        OnPropertyChanged(nameof(StatusBadgeText));
     }
 
     [RelayCommand]
@@ -130,7 +174,7 @@ public partial class PipelineJobItemViewModel : ObservableObject
                 }
                 catch
                 {
-                    // Ignore shell execute fallback error
+                    // Ignore fallback error
                 }
             }
         }
@@ -151,7 +195,30 @@ public partial class PipelineJobItemViewModel : ObservableObject
         }
         catch
         {
-            // Ignore shell execute fallback error
+            // Ignore fallback error
+        }
+    }
+
+    [RelayCommand]
+    private void OpenFolder()
+    {
+        if (string.IsNullOrWhiteSpace(GeneratedNotePath)) return;
+
+        try
+        {
+            var folder = Path.GetDirectoryName(GeneratedNotePath);
+            if (!string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = folder,
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch
+        {
+            // Ignore fallback error
         }
     }
 }

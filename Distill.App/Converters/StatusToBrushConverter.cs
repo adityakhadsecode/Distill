@@ -11,14 +11,19 @@ public class StatusToBrushConverter : IValueConverter
     {
         if (value is PipelineJobStatus status)
         {
+            var isBackground = parameter is string p && p.Equals("background", StringComparison.OrdinalIgnoreCase);
+            var isBorder = parameter is string b && b.Equals("border", StringComparison.OrdinalIgnoreCase);
+
+            byte alpha = isBackground ? (byte)38 : isBorder ? (byte)90 : (byte)255;
+
             return status switch
             {
-                PipelineJobStatus.Queued => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 100, 116, 139)),      // #64748B Muted slate
-                PipelineJobStatus.Downloading => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 14, 165, 233)),   // #0EA5E9 Sky Blue
-                PipelineJobStatus.Extracting => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 168, 85, 247)),   // #A855F7 Purple
-                PipelineJobStatus.Formatting => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 99, 102, 241)),    // #6366F1 Indigo
-                PipelineJobStatus.Done => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 16, 185, 129)),          // #10B981 Emerald
-                PipelineJobStatus.Failed => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 239, 68, 68)),         // #EF4444 Red
+                PipelineJobStatus.Queued => new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, 100, 116, 139)),      // Slate
+                PipelineJobStatus.Downloading => new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, 2, 132, 199)),   // Sky
+                PipelineJobStatus.Extracting => new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, 147, 51, 234)),   // Purple
+                PipelineJobStatus.Formatting => new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, 79, 70, 229)),    // Indigo
+                PipelineJobStatus.Done => new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, 16, 185, 129)),          // Emerald
+                PipelineJobStatus.Failed => new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, 239, 68, 68)),         // Red
                 _ => new SolidColorBrush(Colors.Gray)
             };
         }

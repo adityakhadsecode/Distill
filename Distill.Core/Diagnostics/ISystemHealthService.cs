@@ -37,6 +37,21 @@ public interface ISystemHealthService
     Task<string> DownloadWhisperModelAsync(string modelFileName, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Downloads or updates yt-dlp.exe to the latest release.
+    /// </summary>
+    Task DownloadOrUpdateYtDlpAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads or updates ffmpeg.exe to the latest release.
+    /// </summary>
+    Task DownloadOrUpdateFfmpegAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads or updates whisper-cli.exe and supporting dependencies to the latest release.
+    /// </summary>
+    Task DownloadOrUpdateWhisperAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Downloads and configures any missing local tools (yt-dlp, ffmpeg, whisper-cli) in one shot.
     /// </summary>
     Task DownloadMissingToolsAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default);

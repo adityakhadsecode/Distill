@@ -246,6 +246,152 @@ public class SystemHealthService : ISystemHealthService
         return destinationPath;
     }
 
+    public async Task DownloadOrUpdateYtDlpAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var toolsDir = Path.Combine(AppContext.BaseDirectory, "tools");
+        Directory.CreateDirectory(toolsDir);
+
+        var ytdlpPath = Path.Combine(toolsDir, "yt-dlp.exe");
+        var tempFile = Path.Combine(Path.GetTempPath(), $"yt-dlp_{Guid.NewGuid():N}.exe");
+
+        progress?.Report("Downloading latest yt-dlp.exe from GitHub...");
+        try
+        {
+            using var resp = await _httpClient.GetAsync("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", cancellationToken).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+
+            await using (var fs = File.Create(tempFile))
+            {
+                await resp.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
+            }
+
+            File.Copy(tempFile, ytdlpPath, true);
+            progress?.Report("yt-dlp updated successfully.");
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    public async Task DownloadOrUpdateFfmpegAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var toolsDir = Path.Combine(AppContext.BaseDirectory, "tools");
+        Directory.CreateDirectory(toolsDir);
+
+        var ffmpegPath = Path.Combine(toolsDir, "ffmpeg.exe");
+        var tempZip = Path.Combine(Path.GetTempPath(), $"ffmpeg_{Guid.NewGuid():N}.zip");
+        var tempExtract = Path.Combine(Path.GetTempPath(), $"ffmpeg_ext_{Guid.NewGuid():N}");
+
+        progress?.Report("Downloading ffmpeg release essentials...");
+        try
+        {
+            using var resp = await _httpClient.GetAsync("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", cancellationToken).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+
+            await using (var fs = File.Create(tempZip))
+            {
+                await resp.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
+            }
+
+            progress?.Report("Extracting ffmpeg.exe...");
+            ZipFile.ExtractToDirectory(tempZip, tempExtract, true);
+
+            var found = Directory.GetFiles(tempExtract, "ffmpeg.exe", SearchOption.AllDirectories).FirstOrDefault();
+            if (found != null)
+            {
+                File.Copy(found, ffmpegPath, true);
+                progress?.Report("ffmpeg.exe installed successfully.");
+            }
+            else
+            {
+                throw new FileNotFoundException("ffmpeg.exe not found in extracted archive.");
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempZip)) File.Delete(tempZip);
+            if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, true);
+        }
+    }
+
+    public async Task DownloadOrUpdateWhisperAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var toolsDir = Path.Combine(AppContext.BaseDirectory, "tools");
+        Directory.CreateDirectory(toolsDir);
+
+        var whisperPath = Path.Combine(toolsDir, "whisper-cli.exe");
+        var tempZip = Path.Combine(Path.GetTempPath(), $"whisper_{Guid.NewGuid():N}.zip");
+        var tempExtract = Path.Combine(Path.GetTempPath(), $"whisper_ext_{Guid.NewGuid():N}");
+
+        progress?.Report("Downloading whisper.cpp binaries...");
+        try
+        {
+            HttpResponseMessage? resp = null;
+            var urls = new[]
+            {
+                "https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-bin-x64.zip",
+                "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-bin-x64.zip"
+            };
+
+            foreach (var url in urls)
+            {
+                try
+                {
+                    var r = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+                    if (r.IsSuccessStatusCode)
+                    {
+                        resp = r;
+                        break;
+                    }
+                    r.Dispose();
+                }
+                catch
+                {
+                    // Try next URL fallback
+                }
+            }
+
+            if (resp == null || !resp.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException("Failed to download whisper-bin-x64.zip from whisper.cpp releases.");
+            }
+
+            using (resp)
+            await using (var fs = File.Create(tempZip))
+            {
+                await resp.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
+            }
+
+            progress?.Report("Extracting whisper-cli.exe and libraries...");
+            ZipFile.ExtractToDirectory(tempZip, tempExtract, true);
+
+            var found = Directory.GetFiles(tempExtract, "whisper-cli.exe", SearchOption.AllDirectories).FirstOrDefault()
+                        ?? Directory.GetFiles(tempExtract, "main.exe", SearchOption.AllDirectories).FirstOrDefault();
+
+            if (found != null)
+            {
+                File.Copy(found, whisperPath, true);
+            }
+            else
+            {
+                throw new FileNotFoundException("whisper-cli.exe / main.exe not found in extracted archive.");
+            }
+
+            foreach (var dll in Directory.GetFiles(tempExtract, "*.dll", SearchOption.AllDirectories))
+            {
+                File.Copy(dll, Path.Combine(toolsDir, Path.GetFileName(dll)), true);
+            }
+
+            progress?.Report("whisper.cpp installed successfully.");
+        }
+        finally
+        {
+            if (File.Exists(tempZip)) File.Delete(tempZip);
+            if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, true);
+        }
+    }
+
     public async Task DownloadMissingToolsAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         var toolsDir = Path.Combine(AppContext.BaseDirectory, "tools");
@@ -255,87 +401,21 @@ public class SystemHealthService : ISystemHealthService
         var ytdlpPath = Path.Combine(toolsDir, "yt-dlp.exe");
         if (!File.Exists(ytdlpPath))
         {
-            progress?.Report("Downloading yt-dlp.exe...");
-            using var resp = await _httpClient.GetAsync("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", cancellationToken).ConfigureAwait(false);
-            resp.EnsureSuccessStatusCode();
-            await using var fs = File.Create(ytdlpPath);
-            await resp.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
-            progress?.Report("Downloaded yt-dlp.exe.");
+            await DownloadOrUpdateYtDlpAsync(progress, cancellationToken).ConfigureAwait(false);
         }
 
         // 2. ffmpeg.exe
         var ffmpegPath = Path.Combine(toolsDir, "ffmpeg.exe");
         if (!File.Exists(ffmpegPath))
         {
-            progress?.Report("Downloading ffmpeg...");
-            var tempZip = Path.Combine(Path.GetTempPath(), $"ffmpeg_{Guid.NewGuid():N}.zip");
-            var tempExtract = Path.Combine(Path.GetTempPath(), $"ffmpeg_ext_{Guid.NewGuid():N}");
-
-            try
-            {
-                using var resp = await _httpClient.GetAsync("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", cancellationToken).ConfigureAwait(false);
-                resp.EnsureSuccessStatusCode();
-                await using (var fs = File.Create(tempZip))
-                {
-                    await resp.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
-                }
-
-                progress?.Report("Extracting ffmpeg.exe...");
-                ZipFile.ExtractToDirectory(tempZip, tempExtract, true);
-
-                var found = Directory.GetFiles(tempExtract, "ffmpeg.exe", SearchOption.AllDirectories).FirstOrDefault();
-                if (found != null)
-                {
-                    File.Copy(found, ffmpegPath, true);
-                    progress?.Report("Configured ffmpeg.exe.");
-                }
-            }
-            finally
-            {
-                if (File.Exists(tempZip)) File.Delete(tempZip);
-                if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, true);
-            }
+            await DownloadOrUpdateFfmpegAsync(progress, cancellationToken).ConfigureAwait(false);
         }
 
         // 3. whisper-cli.exe
         var whisperPath = Path.Combine(toolsDir, "whisper-cli.exe");
         if (!File.Exists(whisperPath))
         {
-            progress?.Report("Downloading whisper.cpp binaries...");
-            var tempZip = Path.Combine(Path.GetTempPath(), $"whisper_{Guid.NewGuid():N}.zip");
-            var tempExtract = Path.Combine(Path.GetTempPath(), $"whisper_ext_{Guid.NewGuid():N}");
-
-            try
-            {
-                using var resp = await _httpClient.GetAsync("https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-bin-x64.zip", cancellationToken).ConfigureAwait(false);
-                if (resp.IsSuccessStatusCode)
-                {
-                    await using (var fs = File.Create(tempZip))
-                    {
-                        await resp.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
-                    }
-
-                    ZipFile.ExtractToDirectory(tempZip, tempExtract, true);
-                    var found = Directory.GetFiles(tempExtract, "whisper-cli.exe", SearchOption.AllDirectories).FirstOrDefault()
-                                ?? Directory.GetFiles(tempExtract, "main.exe", SearchOption.AllDirectories).FirstOrDefault();
-
-                    if (found != null)
-                    {
-                        File.Copy(found, whisperPath, true);
-                    }
-
-                    foreach (var dll in Directory.GetFiles(tempExtract, "*.dll", SearchOption.AllDirectories))
-                    {
-                        File.Copy(dll, Path.Combine(toolsDir, Path.GetFileName(dll)), true);
-                    }
-                    progress?.Report("Configured whisper.cpp.");
-                }
-            }
-            finally
-            {
-                if (File.Exists(tempZip)) File.Delete(tempZip);
-                if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, true);
-            }
+            await DownloadOrUpdateWhisperAsync(progress, cancellationToken).ConfigureAwait(false);
         }
 
         progress?.Report("All tools are up to date!");

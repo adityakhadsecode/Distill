@@ -32,6 +32,8 @@ TestResults/
 ## Temporary Data & Local Scratch
 temp/
 scratch/
+publish/
+*.binlog
 *.log
 *.tmp
 

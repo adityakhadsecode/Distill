@@ -131,6 +131,72 @@ public class SystemHealthServiceTests
     }
 
     [Fact]
+    public async Task DownloadOrUpdateYtDlpAsync_WhenInvoked_DownloadsExecutable()
+    {
+        // Arrange
+        var reportedMessages = new List<string>();
+        var progress = new Progress<string>(msg => reportedMessages.Add(msg));
+
+        _fakeHttpHandler.Handler = request =>
+        {
+            if (request.RequestUri?.ToString().Contains("yt-dlp.exe") == true)
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(new byte[] { 0x4D, 0x5A, 0x90, 0x00 }) // mock MZ header
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        };
+
+        // Act
+        await _healthService.DownloadOrUpdateYtDlpAsync(progress);
+
+        // Assert
+        var toolsDir = Path.Combine(AppContext.BaseDirectory, "tools");
+        var ytdlpPath = Path.Combine(toolsDir, "yt-dlp.exe");
+        Assert.True(File.Exists(ytdlpPath));
+    }
+
+    [Fact]
+    public void ToolLocator_WithCustomPathThatExists_ResolvesCustomPath()
+    {
+        // Arrange
+        var tempFile = Path.Combine(Path.GetTempPath(), $"custom_ytdlp_{Guid.NewGuid():N}.exe");
+        File.WriteAllText(tempFile, "mock");
+        try
+        {
+            var settings = new DistillSettings { YtDlpBinaryPath = tempFile };
+            var locator = new ToolLocator(Options.Create(settings));
+
+            // Act
+            var resolved = locator.ResolveToolPath("yt-dlp.exe");
+
+            // Assert
+            Assert.Equal(tempFile, resolved);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void ToolLocator_WithNonExistentCustomPath_FallsBackToDefault()
+    {
+        // Arrange
+        var nonExistentPath = Path.Combine(Path.GetTempPath(), "does_not_exist_xyz.exe");
+        var settings = new DistillSettings { YtDlpBinaryPath = nonExistentPath };
+        var locator = new ToolLocator(Options.Create(settings));
+
+        // Act
+        var resolved = locator.ResolveToolPath("yt-dlp.exe");
+
+        // Assert
+        Assert.NotEqual(nonExistentPath, resolved);
+    }
+
+    [Fact]
     public void DistillSettings_Defaults_AreConfiguredProperly()
     {
         var settings = new DistillSettings();
@@ -141,5 +207,9 @@ public class SystemHealthServiceTests
         Assert.False(settings.AppendRawContentToNote);
         Assert.Equal("llama3.2:3b", settings.OllamaModelName);
         Assert.Equal("http://localhost:11434", settings.OllamaEndpoint);
+        Assert.Equal(string.Empty, settings.YtDlpBinaryPath);
+        Assert.Equal(string.Empty, settings.FfmpegBinaryPath);
+        Assert.Equal(string.Empty, settings.WhisperBinaryPath);
+        Assert.Equal("Default", settings.SelectedTheme);
     }
 }

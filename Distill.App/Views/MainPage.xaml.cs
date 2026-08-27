@@ -7,40 +7,77 @@ using WinRT.Interop;
 
 namespace Distill.App.Views;
 
+/// <summary>
+/// Main interactive page for Distill, hosting the Fluent 2 NavigationView, Extraction Queue,
+/// Get Started onboarding guide, and Settings & Diagnostics.
+/// </summary>
 public sealed partial class MainPage : Page
 {
     public MainViewModel ViewModel { get; }
+
+    public UIElement? AppTitleBar => TitleBarGrid;
 
     public MainPage(MainViewModel viewModel)
     {
         this.InitializeComponent();
         ViewModel = viewModel;
-    }
 
-    private void MainNavView_Loaded(object sender, RoutedEventArgs e)
-    {
-        ShowView("Queue");
-    }
-
-    private void MainNavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
-    {
-        if (args.InvokedItemContainer is NavigationViewItem item && item.Tag is string tag)
+        // Synchronize NavigationView selection when ViewModel changes view
+        ViewModel.PropertyChanged += (s, e) =>
         {
-            ShowView(tag);
+            if (e.PropertyName == nameof(MainViewModel.CurrentViewTag))
+            {
+                SyncNavViewSelection(ViewModel.CurrentViewTag);
+            }
+        };
+    }
+
+    private void NavView_Loaded(object sender, RoutedEventArgs e)
+    {
+        SyncNavViewSelection(ViewModel.CurrentViewTag);
+    }
+
+    private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.IsSettingsSelected)
+        {
+            ViewModel.NavigateTo("Settings");
+        }
+        else if (args.SelectedItemContainer is NavigationViewItem item)
+        {
+            var tag = item.Tag?.ToString() ?? "Extract";
+            ViewModel.NavigateTo(tag);
         }
     }
 
-    private void ShowView(string viewTag)
+    private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        if (viewTag == "Settings")
+        if (args.IsSettingsInvoked)
         {
-            QueueViewPanel.Visibility = Visibility.Collapsed;
-            SettingsViewPanel.Visibility = Visibility.Visible;
+            ViewModel.NavigateTo("Settings");
+        }
+        else if (args.InvokedItemContainer is NavigationViewItem item)
+        {
+            var tag = item.Tag?.ToString() ?? "Extract";
+            ViewModel.NavigateTo(tag);
+        }
+    }
+
+    private void SyncNavViewSelection(string tag)
+    {
+        if (NavView == null) return;
+
+        if (tag == "Settings")
+        {
+            NavView.SelectedItem = NavView.SettingsItem;
+        }
+        else if (tag == "Onboarding")
+        {
+            NavView.SelectedItem = OnboardingNavItem;
         }
         else
         {
-            QueueViewPanel.Visibility = Visibility.Visible;
-            SettingsViewPanel.Visibility = Visibility.Collapsed;
+            NavView.SelectedItem = ExtractNavItem;
         }
     }
 
@@ -63,5 +100,23 @@ public sealed partial class MainPage : Page
     {
         var hwnd = App.Current.MainWindow != null ? WindowNative.GetWindowHandle(App.Current.MainWindow) : nint.Zero;
         await ViewModel.BrowseWhisperModelFileAsync(hwnd);
+    }
+
+    private async void BrowseYtDlp_Click(object sender, RoutedEventArgs e)
+    {
+        var hwnd = App.Current.MainWindow != null ? WindowNative.GetWindowHandle(App.Current.MainWindow) : nint.Zero;
+        await ViewModel.BrowseYtDlpBinaryFileAsync(hwnd);
+    }
+
+    private async void BrowseFfmpeg_Click(object sender, RoutedEventArgs e)
+    {
+        var hwnd = App.Current.MainWindow != null ? WindowNative.GetWindowHandle(App.Current.MainWindow) : nint.Zero;
+        await ViewModel.BrowseFfmpegBinaryFileAsync(hwnd);
+    }
+
+    private async void BrowseWhisperBinary_Click(object sender, RoutedEventArgs e)
+    {
+        var hwnd = App.Current.MainWindow != null ? WindowNative.GetWindowHandle(App.Current.MainWindow) : nint.Zero;
+        await ViewModel.BrowseWhisperBinaryFileAsync(hwnd);
     }
 }

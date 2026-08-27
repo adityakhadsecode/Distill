@@ -59,25 +59,66 @@ function Create-LogoPng($width, $height, $outPath) {
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 
-    # Dark gradient background
+    # Dark obsidian backdrop
     $rect = New-Object System.Drawing.Rectangle(0, 0, $width, $height)
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+    $bgBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
         $rect,
         [System.Drawing.Color]::FromArgb(255, 15, 17, 23),   # #0F1117
-        [System.Drawing.Color]::FromArgb(255, 99, 102, 241), # #6366F1 Accent
+        [System.Drawing.Color]::FromArgb(255, 26, 27, 46),  # #1A1B2E
         45.0
     )
-    $g.FillRectangle($brush, $rect)
+    $g.FillRectangle($bgBrush, $rect)
 
-    # Accent D symbol
-    $fontSize = [Math]::Max(8, [int]($height * 0.5))
-    $font = New-Object System.Drawing.Font("Segoe UI Variable Display", $fontSize, [System.Drawing.FontStyle]::Bold)
-    $textBrush = [System.Drawing.Brushes]::White
-    $sf = New-Object System.Drawing.StringFormat
-    $sf.Alignment = [System.Drawing.StringAlignment]::Center
-    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
-    $g.DrawString("D", $font, $textBrush, [System.Drawing.RectangleF]::new(0, 0, $width, $height), $sf)
+    # Geometry scaling calculations
+    $isWide = $width -gt ($height * 1.5)
+    $iconSize = if ($isWide) { [int]($height * 0.65) } else { [int]($height * 0.72) }
+    $iconCenterX = if ($isWide) { [int]($width * 0.28) } else { [int]($width * 0.5) }
+    $iconCenterY = [int]($height * 0.5)
+    $scale = $iconSize / 32.0
+
+    # Helper for relative coordinate translation
+    function Pt($x, $y) {
+        $realX = $iconCenterX + (($x - 16) * $scale)
+        $realY = $iconCenterY + (($y - 16) * $scale)
+        return [System.Drawing.PointF]::new($realX, $realY)
+    }
+
+    # 1. Top Ingestion Prism
+    $topPts = @( (Pt 16 4), (Pt 27 9), (Pt 16 14), (Pt 5 9) )
+    $topBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 167, 139, 250)) # #A78BFA
+    $g.FillPolygon($topBrush, $topPts)
+
+    # 2. Left Funnel Facet
+    $leftPts = @( (Pt 5 9), (Pt 16 14), (Pt 16 22), (Pt 13 24), (Pt 13 18), (Pt 5 9) )
+    $leftBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 124, 58, 237)) # #7C3AED
+    $g.FillPolygon($leftBrush, $leftPts)
+
+    # 3. Right Funnel Facet
+    $rightPts = @( (Pt 27 9), (Pt 16 14), (Pt 16 22), (Pt 19 20), (Pt 19 18), (Pt 27 9) )
+    $rightBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 99, 102, 241)) # #6366F1
+    $g.FillPolygon($rightBrush, $rightPts)
+
+    # 4. Distilled Crystal Droplet
+    $dropX = $iconCenterX - (2.5 * $scale)
+    $dropY = $iconCenterY + (9 * $scale)
+    $dropW = 5 * $scale
+    $dropH = 6 * $scale
+    $dropBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 167, 139, 250)) # #A78BFA
+    $g.FillEllipse($dropBrush, [System.Drawing.RectangleF]::new($dropX, $dropY, $dropW, $dropH))
+
+    # If Wide, draw 'Distill' wordmark
+    if ($isWide) {
+        $fontHeight = [Math]::Max(10, [int]($height * 0.28))
+        $font = New-Object System.Drawing.Font("Segoe UI Variable Display", $fontHeight, [System.Drawing.FontStyle]::Bold)
+        $textBrush = [System.Drawing.Brushes]::White
+        $sf = New-Object System.Drawing.StringFormat
+        $sf.Alignment = [System.Drawing.StringAlignment]::Near
+        $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+        $textRect = [System.Drawing.RectangleF]::new([int]($width * 0.46), 0, [int]($width * 0.54), $height)
+        $g.DrawString("Distill", $font, $textBrush, $textRect, $sf)
+    }
 
     $bmp.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose()

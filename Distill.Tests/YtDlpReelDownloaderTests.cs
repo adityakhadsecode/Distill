@@ -595,5 +595,112 @@ public class YtDlpReelDownloaderTests
         Assert.False(Directory.Exists(tempDir));
     }
 
+    [Fact]
+    public async Task DownloadAsync_PassesIgnoreNoFormatsError_ToYtDlp()
+    {
+        // Arrange
+        const string url = "https://www.instagram.com/p/image_post_123/";
+        var mockJson = JsonSerializer.Serialize(new
+        {
+            title = "Test Post",
+            display_url = "https://instagram.com/direct_image.jpg",
+            formats = Array.Empty<object>()
+        });
+
+        _fakeRunner.CustomHandler = (exe, args, _) =>
+        {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, mockJson, string.Empty);
+            }
+            return new ProcessResult(0, "OK", string.Empty);
+        };
+
+        _fakeHttpHandler.Handler = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 })
+        };
+
+        // Act
+        var result = await _downloader.DownloadAsync(url);
+
+        // Assert
+        Assert.Contains(_fakeRunner.Executions, h => h.Arguments.Contains("--ignore-no-formats-error"));
+        Assert.IsType<PostDownloadResult>(result);
+    }
+
+    [Theory]
+    [InlineData("{\"thumbnail\": \"https://instagram.com/thumb_prop.jpg\"}", "https://instagram.com/thumb_prop.jpg")]
+    [InlineData("{\"display_url\": \"https://instagram.com/display_prop.jpg\"}", "https://instagram.com/display_prop.jpg")]
+    [InlineData("{\"url\": \"https://instagram.com/direct_url.jpg\"}", "https://instagram.com/direct_url.jpg")]
+    public void GetBestImageUrl_WithVariousPropertyNames_ResolvesCorrectly(string json, string expectedUrl)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var resolvedUrl = YtDlpReelDownloader.GetBestImageUrl(doc.RootElement);
+        Assert.Equal(expectedUrl, resolvedUrl);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_WithCarousel_WhenSingleSlideFails_BestEffortSucceedsWithRemainingSlides()
+    {
+        // Arrange
+        const string postUrl = "https://www.instagram.com/p/carousel_partial_fail/";
+
+        var metadataJson = JsonSerializer.Serialize(new
+        {
+            title = "Partial Carousel",
+            uploader = "test_creator",
+            entries = new[]
+            {
+                new
+                {
+                    id = "slide_1_ok",
+                    thumbnail = "https://instagram.com/slide1_ok.jpg",
+                    formats = Array.Empty<object>()
+                },
+                new
+                {
+                    id = "slide_2_broken",
+                    thumbnail = "https://instagram.com/slide2_broken.jpg",
+                    formats = Array.Empty<object>()
+                },
+                new
+                {
+                    id = "slide_3_ok",
+                    thumbnail = "https://instagram.com/slide3_ok.jpg",
+                    formats = Array.Empty<object>()
+                }
+            }
+        });
+
+        _fakeRunner.CustomHandler = (exe, args, _) =>
+        {
+            if (args.Contains("--dump-single-json"))
+            {
+                return new ProcessResult(0, metadataJson, string.Empty);
+            }
+            return new ProcessResult(0, "OK", string.Empty);
+        };
+
+        _fakeHttpHandler.Handler = request =>
+        {
+            if (request.RequestUri?.AbsoluteUri.Contains("slide2_broken") == true)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 })
+            };
+        };
+
+        // Act
+        var result = await _downloader.DownloadAsync(postUrl);
+
+        // Assert
+        var postResult = Assert.IsType<PostDownloadResult>(result);
+        Assert.Equal(2, postResult.ImageFilePaths.Count);
+    }
+
     #endregion
 }

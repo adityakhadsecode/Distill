@@ -2,15 +2,28 @@
 
 > **Local-First Instagram Reel & Post Knowledge Extraction for Obsidian**
 
+[![Release](https://img.shields.io/github/v/release/adityakhadsecode/Distill?color=7C3AED&label=release)](https://github.com/adityakhadsecode/Distill/releases/latest)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
-[![WinUI 3](https://img.shields.io/badge/UI-WinUI%203%20%2F%20Windows%20App%20SDK-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/en-us/windows/apps/winui/winui3/)
+[![WinUI 3](https://img.shields.io/badge/UI-WinUI%203%20%2F%20Fluent%202-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/en-us/windows/apps/winui/winui3/)
 [![Ollama](https://img.shields.io/badge/LLM-Ollama%20(Local)-white?logo=ollama&logoColor=black)](https://ollama.com/)
+[![Whisper](https://img.shields.io/badge/STT-whisper.cpp-4F46E5)](https://github.com/ggerganov/whisper.cpp)
 [![Obsidian](https://img.shields.io/badge/Target-Obsidian%20Vault-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md/)
-[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-10B981)](#zero-cloud-privacy)
+[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-10B981)](#-zero-cloud-privacy)
 
-**Distill** is a native Windows desktop application built with WinUI 3 and .NET 8 that transforms educational Instagram content (multi-slide carousel posts and video Reels) into clean, structured, and richly formatted Markdown notes saved directly into your local [Obsidian](https://obsidian.md) vault.
+**Distill** is a native Windows 11 desktop application built with WinUI 3 and .NET 8 that transforms educational Instagram content (multi-slide carousel posts and video Reels) into clean, structured, and richly formatted Markdown notes saved directly into your local [Obsidian](https://obsidian.md) vault.
 
 Never lose actionable knowledge in Instagram's "Saved" bookmark abyss again.
+
+---
+
+## 📥 Download & Installation
+
+Get the latest release from the [**Releases Page**](https://github.com/adityakhadsecode/Distill/releases/latest):
+
+| Download | Description | Instructions |
+| :--- | :--- | :--- |
+| [**`Distill_1.0.0.0_x64.msix`**](https://github.com/adityakhadsecode/Distill/releases/latest) | **Signed Windows 11 App Package** | Download the `.msix`, `.cer` certificate, and `install-msix.ps1`. Run `powershell -ExecutionPolicy Bypass -File .\install-msix.ps1`. |
+| [**`Distill-Portable-x64.zip`**](https://github.com/adityakhadsecode/Distill/releases/latest) | **Standalone Portable ZIP** | Extract `.zip` and double-click `Distill.App.exe`. Zero installation required. |
 
 ---
 
@@ -57,10 +70,11 @@ flowchart LR
 
 ## ✨ Key Features
 
-- **100% Local-First & Zero Cloud Costs**: All OCR, audio transcription, LLM distillation, and file writing run entirely on your local machine with zero external cloud subscriptions or telemetry.
-- **Zero-Python Distribution Architecture**: Native C# WinUI 3 desktop shell calling standalone native binaries (`yt-dlp`, `ffmpeg`, `whisper.cpp`), native Windows runtime OCR (`Windows.Media.Ocr`), and the local `Ollama` daemon—no brittle Python environments to bundle or break.
-- **Seamless Obsidian Integration**: Direct file system writes with collision protection, tags (`#instagram/reel`, `#instagram/post`), and `obsidian://` URI launcher support.
-- **Modern Fluent Design UI**: Windows 11 Mica backdrop, dark workspace theme, live 5-stage progress indicator, and clipboard auto-detection.
+- **🛡️ 100% Local-First & Zero Cloud Costs**: All OCR, audio transcription, LLM distillation, and file writing run entirely on your local machine with zero external cloud subscriptions, API keys, or telemetry.
+- **⚡ Zero-Python Distribution Architecture**: Native C# WinUI 3 desktop shell calling standalone native binaries (`yt-dlp`, `ffmpeg`, `whisper.cpp`), native Windows runtime OCR (`Windows.Media.Ocr`), and the local `Ollama` daemon—no brittle Python environments to bundle or break.
+- **🎨 Windows 11 Fluent 2 Design**: Clean Mica material backdrop, extended custom title bar, compact `NavigationView`, theme-adaptive color system (Follow System / Dark / Light), and hero spotlight queue.
+- **🩺 Live System Health & In-App Asset Manager**: Automatically checks local prerequisites (Vault, Ollama, Whisper, OCR) and provides one-click in-app downloading for missing binaries and GGML Whisper voice models.
+- **📂 Seamless Obsidian Integration**: Direct file system writes with collision protection, tags (`#instagram/reel`, `#instagram/post`), clean YAML metadata, and instant `obsidian://` URI launcher support.
 
 ---
 
@@ -69,28 +83,35 @@ flowchart LR
 ```text
 Distill.sln
 ├── Distill.App/                 # WinUI 3 Desktop Application (MVVM, XAML, DI Container)
-│   ├── ViewModels/              # MainViewModel with CommunityToolkit.Mvvm
-│   ├── MainWindow.xaml          # Fluent UI Window with Ingest & Progress Stepper
-│   ├── App.xaml / App.xaml.cs   # Dependency Injection container setup
+│   ├── Converters/              # Health status, status brushes, visibility converters
+│   ├── ViewModels/              # MainViewModel & PipelineJobItemViewModel
+│   ├── Views/                   # MainPage.xaml with Fluent 2 shell
+│   ├── MainWindow.xaml          # Extended Mica Window with custom titlebar
+│   ├── App.xaml / App.xaml.cs   # Dependency Injection container & lifecycle
 │   └── appsettings.json         # Local configuration file
 │
 ├── Distill.Core/                # Domain & Core Pipeline (No UI dependencies)
 │   ├── Configuration/           # DistillSettings options model
-│   ├── Models/                  # DownloadResult, ExtractedContent, NoteMetadata
-│   ├── Downloaders/             # IReelDownloader & implementations
+│   ├── Diagnostics/             # ISystemHealthService & tool diagnostics
+│   ├── Downloaders/             # IReelDownloader (yt-dlp + ffmpeg)
+│   ├── Models/                  # PipelineJob, ExtractedContent, NoteMetadata
 │   ├── Ocr/                     # ITextExtractor (Windows.Media.Ocr)
+│   ├── Pipeline/                # IPipelineOrchestrator background worker
+│   ├── Process/                 # IProcessRunner & IToolLocator
 │   ├── SpeechToText/            # ITranscriber (whisper.cpp)
 │   ├── Formatting/              # INoteFormatter (Ollama HTTP client)
 │   └── VaultWriter/             # IVaultWriter (Obsidian Markdown writer)
 │
-└── Distill.Tests/               # xUnit Unit Test Suite
-    ├── StubPipelineTests.cs     # Verification of core interface contracts
-    └── VaultWriterStubTests.cs  # Markdown & YAML frontmatter formatting tests
+└── Distill.Tests/               # xUnit Unit Test Suite (61 passing tests)
+    ├── SystemHealthServiceTests.cs
+    ├── YtDlpReelDownloaderTests.cs
+    ├── OnboardingAndSettingsTests.cs
+    └── VaultWriterStubTests.cs
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started (Development)
 
 ### Prerequisites
 
@@ -101,42 +122,34 @@ Distill.sln
      ```bash
      ollama pull llama3.2:3b
      ```
-   - [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org/) (installed in `PATH` or via `scoop install yt-dlp ffmpeg`).
-   - [whisper.cpp](https://github.com/ggerganov/whisper.cpp) binary (e.g. `whisper-cli.exe` + `ggml-base.en.bin`).
+   - [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org/) (auto-downloadable in-app or via `scoop install yt-dlp ffmpeg`).
+   - [whisper.cpp](https://github.com/ggerganov/whisper.cpp) binary (auto-downloadable in-app).
 
-### Configuration
-
-Edit `Distill.App/appsettings.json`:
-
-```json
-{
-  "DistillSettings": {
-    "VaultFolderPath": "C:\\Users\\YourName\\Documents\\ObsidianVault\\Sources\\Instagram",
-    "OllamaModelName": "llama3.2:3b",
-    "OllamaEndpoint": "http://localhost:11434",
-    "WhisperBinaryPath": "C:\\Tools\\whisper.cpp\\whisper-cli.exe"
-  }
-}
-```
-
-### Building and Running
+### Building and Running from Source
 
 ```powershell
 # Restore & build solution
 dotnet build Distill.sln
 
 # Run unit tests
-dotnet test Distill.Tests\Distill.Tests.csproj
+dotnet test
 
 # Run WinUI 3 application
 dotnet run --project Distill.App\Distill.App.csproj
+```
+
+### Packaging
+
+```powershell
+# Builds both Portable ZIP and signed MSIX package
+powershell.exe -ExecutionPolicy Bypass -File .\build-packages.ps1
 ```
 
 ---
 
 ## 📜 Documentation
 
-Full engineering and design specifications are maintained in the [`docs/`](file:///e:/Coding/Projects/local-first%20Instagram%20%E2%86%92%20Obsidian%20knowledge%20extraction/docs) directory:
+Full engineering and design specifications are maintained in the [`docs/`](docs/) directory:
 
 - [Project Overview](docs/project-overview.md) — Product requirements, user flows, and scope.
 - [Architecture](docs/architecture.md) — System boundaries, data flow, and invariants.

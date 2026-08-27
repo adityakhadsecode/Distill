@@ -7,6 +7,30 @@
     <Application.Resources>
         <ResourceDictionary>
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <converters:BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <converters:InverseBooleanConverter x:Key="InverseBoolConverter" />
+            <converters:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+            <converters:BoolToGlyphConverter x:Key="BoolToGlyphConverter" />
+            <converters:BoolToBrushConverter x:Key="BoolToBrushConverter" />
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="DistillTitleBarBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="DistillTitleBarBorderBrush" Color="#E2E8F0" />
+                    <SolidColorBrush x:Key="DistillCanvasBackgroundBrush" Color="Transparent" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="DistillTitleBarBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="DistillTitleBarBorderBrush" Color="#1E293B" />
+                    <SolidColorBrush x:Key="DistillCanvasBackgroundBrush" Color="Transparent" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="DistillTitleBarBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="DistillTitleBarBorderBrush" Color="#1E293B" />
+                    <SolidColorBrush x:Key="DistillCanvasBackgroundBrush" Color="Transparent" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>

@@ -46,7 +46,7 @@ public class YtDlpReelDownloader : IReelDownloader
         {
             // 1. Always inspect metadata first via --dump-single-json (no media download)
             _logger?.LogInformation("Inspecting metadata for {Url} via yt-dlp --dump-single-json", url);
-            var dumpArgs = $"--dump-single-json --no-warnings \"{url}\"";
+            var dumpArgs = $"--dump-single-json --no-warnings --ignore-no-formats-error \"{url}\"";
             var dumpResult = await _processRunner.RunAsync(ytDlpPath, dumpArgs, workingDir, cancellationToken).ConfigureAwait(false);
             EnsureSuccess(dumpResult, url);
 
@@ -213,13 +213,25 @@ public class YtDlpReelDownloader : IReelDownloader
 
         if (!string.IsNullOrWhiteSpace(bestImageUrl))
         {
-            var imagePath = Path.Combine(workingDir, "slide_001.jpg");
-            using var response = await _httpClient.GetAsync(bestImageUrl, cancellationToken).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
+            try
+            {
+                var imagePath = Path.Combine(workingDir, "slide_001.jpg");
+                using var response = await _httpClient.GetAsync(bestImageUrl, cancellationToken).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
 
-            await using var fileStream = File.Create(imagePath);
-            await response.Content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
-            imageFilePaths.Add(imagePath);
+                await using var fileStream = File.Create(imagePath);
+                await response.Content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                imageFilePaths.Add(imagePath);
+            }
+            catch (Exception ex) when (ex is not DistillDownloadException)
+            {
+                _logger?.LogWarning(ex, "Failed to download single image from {ImageUrl} for {Url}", bestImageUrl, url);
+                throw new DistillDownloadException($"Failed to download image from '{url}': {ex.Message}", ex);
+            }
+        }
+        else
+        {
+            throw new DistillDownloadException($"No valid image URL found in metadata for '{url}'.");
         }
 
         return new PostDownloadResult
@@ -259,50 +271,66 @@ public class YtDlpReelDownloader : IReelDownloader
         var slideIndex = 1;
         foreach (var entry in entries)
         {
-            if (IsVideoEntry(entry))
+            try
             {
-                // Video slide in carousel: download video via yt-dlp and extract representative frame via ffmpeg
-                var slideUrl = entry.TryGetProperty("webpage_url", out var wp) ? wp.GetString() : null;
-                if (string.IsNullOrWhiteSpace(slideUrl))
+                if (IsVideoEntry(entry))
                 {
-                    slideUrl = entry.TryGetProperty("url", out var entryUrl) ? entryUrl.GetString() : url;
+                    // Video slide in carousel: download video via yt-dlp and extract representative frame via ffmpeg
+                    var slideUrl = entry.TryGetProperty("webpage_url", out var wp) ? wp.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(slideUrl))
+                    {
+                        slideUrl = entry.TryGetProperty("url", out var entryUrl) ? entryUrl.GetString() : url;
+                    }
+
+                    var videoFile = Path.Combine(workingDir, $"slide_{slideIndex:D3}.mp4");
+                    var videoArgs = $"--no-warnings --no-playlist -f \"b/bestvideo+bestaudio/best\" -o \"{videoFile}\" \"{slideUrl}\"";
+                    var videoResult = await _processRunner.RunAsync(ytDlpPath, videoArgs, workingDir, cancellationToken).ConfigureAwait(false);
+                    EnsureSuccess(videoResult, slideUrl ?? url);
+
+                    var framePath = Path.Combine(workingDir, $"slide_{slideIndex:D3}.jpg");
+                    var frameArgs = $"-i \"{videoFile}\" -vframes 1 -y \"{framePath}\"";
+                    await _processRunner.RunAsync(ffmpegPath, frameArgs, workingDir, cancellationToken).ConfigureAwait(false);
+
+                    if (File.Exists(framePath))
+                    {
+                        imageFilePaths.Add(framePath);
+                    }
+                    else if (File.Exists(videoFile))
+                    {
+                        imageFilePaths.Add(videoFile);
+                    }
                 }
-
-                var videoFile = Path.Combine(workingDir, $"slide_{slideIndex:D3}.mp4");
-                var videoArgs = $"--no-warnings --no-playlist -f \"b/bestvideo+bestaudio/best\" -o \"{videoFile}\" \"{slideUrl}\"";
-                var videoResult = await _processRunner.RunAsync(ytDlpPath, videoArgs, workingDir, cancellationToken).ConfigureAwait(false);
-                EnsureSuccess(videoResult, slideUrl ?? url);
-
-                var framePath = Path.Combine(workingDir, $"slide_{slideIndex:D3}.jpg");
-                var frameArgs = $"-i \"{videoFile}\" -vframes 1 -y \"{framePath}\"";
-                await _processRunner.RunAsync(ffmpegPath, frameArgs, workingDir, cancellationToken).ConfigureAwait(false);
-
-                if (File.Exists(framePath))
+                else
                 {
-                    imageFilePaths.Add(framePath);
-                }
-                else if (File.Exists(videoFile))
-                {
-                    imageFilePaths.Add(videoFile);
+                    // Image slide: download highest-resolution thumbnail/image directly via HTTP
+                    var bestImageUrl = GetBestImageUrl(entry);
+                    if (!string.IsNullOrWhiteSpace(bestImageUrl))
+                    {
+                        var imagePath = Path.Combine(workingDir, $"slide_{slideIndex:D3}.jpg");
+                        using var response = await _httpClient.GetAsync(bestImageUrl, cancellationToken).ConfigureAwait(false);
+                        response.EnsureSuccessStatusCode();
+
+                        await using var fileStream = File.Create(imagePath);
+                        await response.Content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                        imageFilePaths.Add(imagePath);
+                    }
+                    else
+                    {
+                        _logger?.LogWarning("No image URL resolved for slide {SlideIndex} in carousel {Url}", slideIndex, url);
+                    }
                 }
             }
-            else
+            catch (Exception ex)
             {
-                // Image slide: download highest-resolution thumbnail directly via HTTP
-                var bestImageUrl = GetBestImageUrl(entry);
-                if (!string.IsNullOrWhiteSpace(bestImageUrl))
-                {
-                    var imagePath = Path.Combine(workingDir, $"slide_{slideIndex:D3}.jpg");
-                    using var response = await _httpClient.GetAsync(bestImageUrl, cancellationToken).ConfigureAwait(false);
-                    response.EnsureSuccessStatusCode();
-
-                    await using var fileStream = File.Create(imagePath);
-                    await response.Content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
-                    imageFilePaths.Add(imagePath);
-                }
+                _logger?.LogWarning(ex, "Best-effort extraction: failed to process slide {SlideIndex} in carousel {Url}", slideIndex, url);
             }
 
             slideIndex++;
+        }
+
+        if (imageFilePaths.Count == 0)
+        {
+            throw new DistillDownloadException($"Failed to extract any images or frames from Instagram carousel '{url}'.");
         }
 
         return new PostDownloadResult
@@ -346,7 +374,19 @@ public class YtDlpReelDownloader : IReelDownloader
             }
         }
 
-        // 2. Fallback to entry "url" if thumbnail array not present
+        // 2. Fallback to thumbnail string property
+        if (entry.TryGetProperty("thumbnail", out var thumbProp) && thumbProp.GetString() is { } singleThumb && !string.IsNullOrWhiteSpace(singleThumb))
+        {
+            return singleThumb;
+        }
+
+        // 3. Fallback to display_url string property
+        if (entry.TryGetProperty("display_url", out var dispProp) && dispProp.GetString() is { } displayUrl && !string.IsNullOrWhiteSpace(displayUrl))
+        {
+            return displayUrl;
+        }
+
+        // 4. Fallback to entry "url" if thumbnail properties not present
         if (entry.TryGetProperty("url", out var urlProp) && urlProp.GetString() is { } directUrl && !string.IsNullOrWhiteSpace(directUrl))
         {
             return directUrl;

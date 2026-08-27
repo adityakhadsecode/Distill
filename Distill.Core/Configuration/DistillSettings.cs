@@ -23,6 +23,16 @@ public class DistillSettings
     public string OllamaEndpoint { get; set; } = "http://localhost:11434";
 
     /// <summary>
+    /// Path to a custom yt-dlp binary (e.g. C:\tools\yt-dlp.exe). If empty, looks in tools/ or PATH.
+    /// </summary>
+    public string YtDlpBinaryPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Path to a custom ffmpeg binary (e.g. C:\ffmpeg\bin\ffmpeg.exe). If empty, looks in tools/ or PATH.
+    /// </summary>
+    public string FfmpegBinaryPath { get; set; } = string.Empty;
+
+    /// <summary>
     /// Path to the whisper.cpp binary (e.g. whisper-cli.exe). If empty, looks in tools/ or PATH.
     /// </summary>
     public string WhisperBinaryPath { get; set; } = string.Empty;
@@ -61,4 +71,14 @@ public class DistillSettings
     /// Whether to append raw OCR text and voice transcript in an expandable details footer inside the generated Markdown note.
     /// </summary>
     public bool AppendRawContentToNote { get; set; } = false;
+
+    /// <summary>
+    /// Whether the user has completed the first-launch onboarding guide.
+    /// </summary>
+    public bool HasCompletedOnboarding { get; set; } = false;
+
+    /// <summary>
+    /// Application color theme: "Default" (Follow System), "Dark", or "Light".
+    /// </summary>
+    public string SelectedTheme { get; set; } = "Default";
 }

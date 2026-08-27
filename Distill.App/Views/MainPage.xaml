@@ -6,518 +6,1211 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:Distill.App.ViewModels"
     xmlns:converters="using:Distill.App.Converters"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    Background="Transparent">
 
     <Page.Resources>
-        <converters:BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
-        <converters:StatusToBrushConverter x:Key="StatusToBrushConverter"/>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <converters:BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:InverseBooleanConverter x:Key="InverseBoolConverter" />
+        <converters:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+        <converters:BoolToGlyphConverter x:Key="BoolToGlyphConverter" />
+        <converters:BoolToBrushConverter x:Key="BoolToBrushConverter" />
     </Page.Resources>
 
-    <NavigationView x:Name="MainNavView"
-                    PaneTitle="Distill"
-                    IsBackButtonVisible="Collapsed"
-                    IsSettingsVisible="False"
-                    PaneDisplayMode="LeftCompact"
-                    ItemInvoked="MainNavView_ItemInvoked"
-                    Loaded="MainNavView_Loaded">
-        
-        <NavigationView.MenuItems>
-            <NavigationViewItem x:Name="NavQueue" Content="Distill Queue" Tag="Queue" IsSelected="True">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE8FD;"/>
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            
-            <NavigationViewItem x:Name="NavSettings" Content="Settings" Tag="Settings">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE713;"/>
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-        </NavigationView.MenuItems>
+    <!-- Root Grid -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 1. Custom TitleBar Drag Region (40px) -->
+            <RowDefinition Height="Auto" />
+            <!-- 2. Main NavigationView -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="28,20,28,20">
-            
-            <!-- 1. QUEUE & INGEST VIEW -->
-            <Grid x:Name="QueueViewPanel" Visibility="Visible">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+        <!-- ======================================================== -->
+        <!-- 1. CUSTOM TITLEBAR (Mica blended, adaptive buttons)      -->
+        <!-- ======================================================== -->
+        <Grid x:Name="TitleBarGrid"
+              Grid.Row="0"
+              Height="40"
+              Background="Transparent"
+              Padding="16,0,140,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-                <!-- Hero Ingest Card -->
-                <Border Grid.Row="0"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="20"
-                        Margin="0,0,0,20">
-                    <StackPanel Spacing="12">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Extract Instagram Knowledge" FontSize="20" FontWeight="SemiBold"/>
-                            <TextBlock Text="Paste any Instagram Reel or Carousel URL to extract speech, OCR visuals, and create notes in Obsidian."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13"/>
-                        </StackPanel>
-
-                        <Grid ColumnSpacing="12" Margin="0,4,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
-                            <TextBox Grid.Column="0"
-                                     x:Name="UrlInputBox"
-                                     PlaceholderText="Paste Instagram link (e.g. https://www.instagram.com/reel/... or /p/...)"
-                                     Text="{x:Bind ViewModel.InstagramUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="UrlInputBox_KeyDown"
-                                     VerticalAlignment="Center"/>
-
-                            <Button Grid.Column="1"
-                                    Content="⚡ Add to Queue"
-                                    Style="{StaticResource AccentButtonStyle}"
-                                    Command="{x:Bind ViewModel.AddJobCommand}"
-                                    Padding="20,7"
-                                    VerticalAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
+            <!-- Brand Logo & App Name -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Width="24" Height="24" CornerRadius="6" Background="#161922" BorderBrush="#2E3348" BorderThickness="1">
+                    <Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Canvas Width="32" Height="32">
+                            <!-- Top Ingestion Prism -->
+                            <Path Data="M 16,3 L 27,8 L 16,13 L 5,8 Z" Fill="#A78BFA" Opacity="0.95" />
+                            <!-- Left Facet -->
+                            <Path Data="M 5,8 L 16,13 L 16,22 L 13,24 L 13,18 L 5,8 Z">
+                                <Path.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#7C3AED" Offset="0.0" />
+                                        <GradientStop Color="#4F46E5" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Path.Fill>
+                            </Path>
+                            <!-- Right Facet -->
+                            <Path Data="M 27,8 L 16,13 L 16,22 L 19,20 L 19,18 L 27,8 Z">
+                                <Path.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#6366F1" Offset="0.0" />
+                                        <GradientStop Color="#9333EA" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Path.Fill>
+                            </Path>
+                            <!-- Distilled Droplet -->
+                            <Path Data="M 16,24 C 14.5,24 13.5,25.2 13.5,27 C 13.5,28.8 14.5,30 16,30 C 17.5,30 18.5,28.8 18.5,27 C 18.5,25.2 17.5,24 16,24 Z" Fill="#A78BFA" />
+                        </Canvas>
+                    </Viewbox>
                 </Border>
+                <TextBlock Text="Distill" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Text="— Instagram Knowledge Extraction" FontSize="11"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+            </StackPanel>
 
-                <!-- Queue Header -->
-                <Grid Grid.Row="1" Margin="4,0,4,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+            <!-- Center Drag Region Spacer -->
+            <Grid Grid.Column="1" Background="Transparent" />
 
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="Active Queue" FontSize="16" FontWeight="SemiBold"/>
+            <!-- TitleBar Quick Actions -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <!-- Theme Quick Cycle Button -->
+                <Button Command="{x:Bind ViewModel.CycleThemeCommand}"
+                        Padding="8,4"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        CornerRadius="4"
+                        ToolTipService.ToolTip="Toggle Theme (Follow System / Dark / Light)">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE771;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.SelectedTheme, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
 
-                    <Button Grid.Column="1"
-                            Content="Clear Completed"
-                            Command="{x:Bind ViewModel.ClearCompletedCommand}"
-                            Visibility="{x:Bind ViewModel.HasJobs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
-                            Padding="12,4"/>
+        <!-- ======================================================== -->
+        <!-- 2. FLUENT 2 NAVIGATION VIEW                              -->
+        <!-- ======================================================== -->
+        <NavigationView x:Name="NavView"
+                        Grid.Row="1"
+                        PaneDisplayMode="LeftCompact"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="True"
+                        SelectionChanged="NavView_SelectionChanged"
+                        ItemInvoked="NavView_ItemInvoked"
+                        Loaded="NavView_Loaded"
+                        Background="Transparent">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="ExtractNavItem" Content="Extraction Queue" Tag="Extract">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE768;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="OnboardingNavItem" Content="Get Started" Tag="Onboarding">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <!-- Main Content Area -->
+            <Grid Background="Transparent">
+
+                <!-- ======================================================== -->
+                <!-- DESTINATION 1: EXTRACTION QUEUE VIEW                     -->
+                <!-- ======================================================== -->
+                <Grid Visibility="{x:Bind ViewModel.IsExtractViewActive, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                      Background="Transparent">
+
+                    <!-- STATE A: HERO SPOTLIGHT (When Queue is Empty) -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{x:Bind ViewModel.HasNoJobs, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid MinHeight="520" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="720" Margin="24,32">
+                            <StackPanel Spacing="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+
+                                <!-- Brand Hero Header -->
+                                <StackPanel Spacing="12" HorizontalAlignment="Center">
+                                    <Border Width="64" Height="64" CornerRadius="14" Background="#161922" BorderBrush="#2E3348" BorderThickness="1" HorizontalAlignment="Center">
+                                        <Viewbox Width="44" Height="44" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Canvas Width="32" Height="32">
+                                                <!-- Top Ingestion Prism -->
+                                                <Path Data="M 16,3 L 27,8 L 16,13 L 5,8 Z" Fill="#A78BFA" />
+                                                <!-- Left Facet -->
+                                                <Path Data="M 5,8 L 16,13 L 16,22 L 13,24 L 13,18 L 5,8 Z">
+                                                    <Path.Fill>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                            <GradientStop Color="#7C3AED" Offset="0.0" />
+                                                            <GradientStop Color="#4F46E5" Offset="1.0" />
+                                                        </LinearGradientBrush>
+                                                    </Path.Fill>
+                                                </Path>
+                                                <!-- Right Facet -->
+                                                <Path Data="M 27,8 L 16,13 L 16,22 L 19,20 L 19,18 L 27,8 Z">
+                                                    <Path.Fill>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                            <GradientStop Color="#6366F1" Offset="0.0" />
+                                                            <GradientStop Color="#9333EA" Offset="1.0" />
+                                                        </LinearGradientBrush>
+                                                    </Path.Fill>
+                                                </Path>
+                                                <!-- Distilled Droplet -->
+                                                <Path Data="M 16,24 C 14.5,24 13.5,25.2 13.5,27 C 13.5,28.8 14.5,30 16,30 C 17.5,30 18.5,28.8 18.5,27 C 18.5,25.2 17.5,24 16,24 Z" Fill="#A78BFA" />
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Border>
+                                    <TextBlock Text="Turn Instagram into Knowledge"
+                                               Style="{ThemeResource TitleLargeTextBlockStyle}"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Transform Instagram Reels and Carousel Posts into pristine, structured Obsidian Markdown notes with local AI and speech-to-text."
+                                               Style="{ThemeResource BodyTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap"
+                                               TextAlignment="Center"
+                                               MaxWidth="540"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Centered Hero Search Card -->
+                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="16"
+                                        Width="640">
+                                    <StackPanel Spacing="12">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- URL Input Box -->
+                                            <TextBox Grid.Column="0"
+                                                     Text="{x:Bind ViewModel.InstagramUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     PlaceholderText="Paste Instagram Reel or Carousel URL (e.g. instagram.com/reel/...)"
+                                                     Height="36"
+                                                     FontSize="13"
+                                                     KeyDown="UrlInputBox_KeyDown"
+                                                     VerticalContentAlignment="Center"
+                                                     CornerRadius="4" />
+
+                                            <!-- Paste Button -->
+                                            <Button Grid.Column="1"
+                                                    Command="{x:Bind ViewModel.PasteFromClipboardCommand}"
+                                                    Height="36"
+                                                    Padding="12,0"
+                                                    CornerRadius="4"
+                                                    ToolTipService.ToolTip="Paste from Clipboard">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="&#xE77F;" FontSize="13" />
+                                                    <TextBlock Text="Paste" FontSize="12" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- Distill Button -->
+                                            <Button Grid.Column="2"
+                                                    Command="{x:Bind ViewModel.AddJobCommand}"
+                                                    Height="36"
+                                                    Padding="16,0"
+                                                    CornerRadius="4"
+                                                    Style="{ThemeResource AccentButtonStyle}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="&#xE768;" FontSize="13" />
+                                                    <TextBlock Text="Distill Note" FontWeight="SemiBold" FontSize="12" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+
+                                        <!-- URL Error / Validation Warning -->
+                                        <InfoBar IsOpen="{x:Bind ViewModel.HasUrlError, Mode=OneWay}"
+                                                 Severity="Warning"
+                                                 Message="{x:Bind ViewModel.UrlValidationMessage, Mode=OneWay}"
+                                                 IsClosable="False" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Feature Badges -->
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <FontIcon Glyph="&#xE73E;" FontSize="11" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                            <TextBlock Text="100% Local &amp; Private" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <FontIcon Glyph="&#xE8D6;" FontSize="11" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <TextBlock Text="Reels &amp; Carousels" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <FontIcon Glyph="&#xE720;" FontSize="11" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <TextBlock Text="Whisper Transcription" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <FontIcon Glyph="&#xE8B7;" FontSize="11" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <TextBlock Text="Windows OCR &amp; Ollama" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Vault Status Indicator -->
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                    <FontIcon Glyph="&#xE8B7;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Obsidian Vault: " Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.VaultFolderPath, Mode=OneWay}"
+                                               Style="{ThemeResource CaptionTextBlockStyle}" FontWeight="Medium"
+                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <HyperlinkButton Content="Configure in Settings"
+                                                     Command="{x:Bind ViewModel.NavigateToSettingsCommand}"
+                                                     Padding="4,0" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- STATE B: TOP DOCKED QUEUE VIEW (When Tasks Exist) -->
+                    <Grid Visibility="{x:Bind ViewModel.HasJobs, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                          Padding="24,16,24,24">
+                        <Grid.RowDefinitions>
+                            <!-- Top URL Input Bar -->
+                            <RowDefinition Height="Auto" />
+                            <!-- Queue List Section -->
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Top Docked URL Input Card -->
+                        <Border Grid.Row="0"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12"
+                                Margin="0,0,0,16">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox Grid.Column="0"
+                                         Text="{x:Bind ViewModel.InstagramUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         PlaceholderText="Paste another Instagram Reel or Carousel URL..."
+                                         Height="36"
+                                         FontSize="13"
+                                         KeyDown="UrlInputBox_KeyDown"
+                                         VerticalContentAlignment="Center"
+                                         CornerRadius="4" />
+
+                                <Button Grid.Column="1"
+                                        Command="{x:Bind ViewModel.PasteFromClipboardCommand}"
+                                        Height="36"
+                                        Padding="12,0"
+                                        CornerRadius="4"
+                                        ToolTipService.ToolTip="Paste from Clipboard">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE77F;" FontSize="13" />
+                                        <TextBlock Text="Paste" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Grid.Column="2"
+                                        Command="{x:Bind ViewModel.AddJobCommand}"
+                                        Height="36"
+                                        Padding="16,0"
+                                        CornerRadius="4"
+                                        Style="{ThemeResource AccentButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE768;" FontSize="13" />
+                                        <TextBlock Text="Distill Note" FontWeight="SemiBold" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Queue Header & Items -->
+                        <Grid Grid.Row="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Queue Section Header -->
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Text="Extraction Queue" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="8,2"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind ViewModel.JobsCountText, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" FontWeight="Bold" />
+                                    </Border>
+                                </StackPanel>
+
+                                <Button Grid.Column="1"
+                                        Content="Clear Completed"
+                                        Command="{x:Bind ViewModel.ClearCompletedCommand}"
+                                        Height="32"
+                                        Padding="12,0"
+                                        CornerRadius="4"
+                                        FontSize="12" />
+                            </Grid>
+
+                            <!-- Queue Scrollable Items -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.Jobs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PipelineJobItemViewModel">
+                                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="16"
+                                                    Margin="0,0,0,12">
+                                                <StackPanel Spacing="10">
+                                                    <!-- Top Row: Icon, Title, and Status Pill -->
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Media Icon Badge -->
+                                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}">
+                                                            <FontIcon Glyph="&#xE8B9;" FontSize="18" Foreground="#E1306C" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+
+                                                        <!-- Job Title & URL -->
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                            <TextBlock Text="{x:Bind DisplayTitle, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{x:Bind Url, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+
+                                                        <!-- Status Pill -->
+                                                        <Border Grid.Column="2"
+                                                                Background="{x:Bind Status, Mode=OneWay, Converter={StaticResource StatusToBrushConverter}, ConverterParameter='background'}"
+                                                                BorderBrush="{x:Bind Status, Mode=OneWay, Converter={StaticResource StatusToBrushConverter}, ConverterParameter='border'}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="4"
+                                                                Padding="10,4"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{x:Bind StatusText, Mode=OneWay}"
+                                                                       Foreground="{x:Bind Status, Mode=OneWay, Converter={StaticResource StatusToBrushConverter}}"
+                                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                                       FontWeight="SemiBold"/>
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <!-- Live Progress Bar & Stage Status -->
+                                                    <Grid ColumnSpacing="10" Visibility="{x:Bind IsActive, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ProgressBar Grid.Column="0"
+                                                                     Value="{x:Bind Progress, Mode=OneWay}"
+                                                                     Maximum="100"
+                                                                     Height="4"
+                                                                     CornerRadius="2"
+                                                                     VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{x:Bind ProgressText, Mode=OneWay}"
+                                                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+
+                                                    <!-- Error Banner (if failed) -->
+                                                    <InfoBar IsOpen="{x:Bind IsFailed, Mode=OneWay}"
+                                                             Severity="Error"
+                                                             Message="{x:Bind ErrorMessage, Mode=OneWay}"
+                                                             IsClosable="False" />
+
+                                                    <!-- Expandable Accordion for Raw Text & Preview -->
+                                                    <Expander Header="Extracted Content &amp; Details" HorizontalAlignment="Stretch" CornerRadius="4" Margin="0,4,0,0">
+                                                        <StackPanel Spacing="8" Padding="4">
+                                                            <!-- OCR Preview -->
+                                                            <TextBlock Text="Visual OCR Text:" Style="{ThemeResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                            <TextBox Text="{x:Bind RawOcrPreview, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" MaxHeight="100" FontSize="11" CornerRadius="4"/>
+
+                                                            <!-- Transcript Preview -->
+                                                            <TextBlock Text="Whisper Audio Transcript:" Style="{ThemeResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                            <TextBox Text="{x:Bind RawTranscriptPreview, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" MaxHeight="100" FontSize="11" CornerRadius="4"/>
+                                                        </StackPanel>
+                                                    </Expander>
+
+                                                    <!-- Bottom Action Buttons (if done) -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                                                                Visibility="{x:Bind IsDone, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <Button Content="Open in Obsidian"
+                                                                Command="{x:Bind OpenInObsidianCommand}"
+                                                                Height="32"
+                                                                Padding="12,0"
+                                                                CornerRadius="4"
+                                                                FontSize="12"
+                                                                Style="{ThemeResource AccentButtonStyle}"/>
+                                                        <Button Content="Show in Folder"
+                                                                Command="{x:Bind OpenFolderCommand}"
+                                                                Height="32"
+                                                                Padding="12,0"
+                                                                CornerRadius="4"
+                                                                FontSize="12"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+
                 </Grid>
 
-                <!-- Empty State -->
-                <StackPanel Grid.Row="2"
-                            VerticalAlignment="Center"
-                            HorizontalAlignment="Center"
-                            Spacing="12"
-                            Visibility="{x:Bind ViewModel.HasNoJobs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                    <FontIcon Glyph="&#xE8FD;" FontSize="42" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                    <TextBlock Text="No active jobs in queue" FontSize="16" FontWeight="Medium"
-                               HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBlock Text="Paste an Instagram Reel or Carousel URL above to begin distillation."
-                               FontSize="13" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center"/>
-                </StackPanel>
+                <!-- ======================================================== -->
+                <!-- DESTINATION 2: GET STARTED / ONBOARDING VIEW             -->
+                <!-- ======================================================== -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{x:Bind ViewModel.IsOnboardingViewActive, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Spacing="24" MaxWidth="860" HorizontalAlignment="Left" Padding="24,24,24,32">
 
-                <!-- Jobs ListView -->
-                <ListView Grid.Row="2"
-                          ItemsSource="{x:Bind ViewModel.Jobs, Mode=OneWay}"
-                          SelectionMode="None"
-                          Visibility="{x:Bind ViewModel.HasJobs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
-                          Padding="0,0,0,20">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Padding" Value="0,0,0,12"/>
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:PipelineJobItemViewModel">
-                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        <!-- Page Header -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Turn Instagram into Knowledge" Style="{ThemeResource TitleLargeTextBlockStyle}" />
+                            <TextBlock Text="A local-first, privacy-preserving pipeline that extracts, transcribes, and denoises Instagram Reels and Carousel posts directly into your Obsidian vault."
+                                       Style="{ThemeResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- 3-Step Explainer Cards -->
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Step 1 -->
+                            <Border Grid.Column="0"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="16">
                                 <StackPanel Spacing="10">
-                                    <!-- Top Row: Status Pill, Title, URL -->
+                                    <Border Width="28" Height="28" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" HorizontalAlignment="Left">
+                                        <TextBlock Text="1" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="Paste Reel or Post" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="Copy any public Instagram URL — single photos, carousel slides, or Reels."
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Step 2 -->
+                            <Border Grid.Column="1"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16">
+                                <StackPanel Spacing="10">
+                                    <Border Width="28" Height="28" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" HorizontalAlignment="Left">
+                                        <TextBlock Text="2" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="Local AI Distillation" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="Windows OCR scans slides, whisper.cpp transcribes speech, and Ollama denoises."
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Step 3 -->
+                            <Border Grid.Column="2"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16">
+                                <StackPanel Spacing="10">
+                                    <Border Width="28" Height="28" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" HorizontalAlignment="Left">
+                                        <TextBlock Text="3" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="Save to Obsidian" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="Structured Markdown notes with rich YAML frontmatter are saved directly to your vault."
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- System & Engine Readiness Section -->
+                        <StackPanel Spacing="12">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="System &amp; Engine Readiness" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="Verify your local machine's prerequisites before extracting notes."
+                                           Style="{ThemeResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+
+                            <!-- Readiness Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16">
+                                <StackPanel Spacing="16">
+
+                                    <!-- 1. Obsidian Vault -->
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
-                                             <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Status Badge Pill -->
-                                        <Border Grid.Column="0"
-                                                Background="{x:Bind Status, Mode=OneWay, Converter={StaticResource StatusToBrushConverter}}"
-                                                CornerRadius="12"
-                                                Padding="10,3"
-                                                VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind StatusBadgeText, Mode=OneWay}"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="White"/>
-                                        </Border>
+                                        <FontIcon Grid.Column="0"
+                                                  Glyph="{x:Bind ViewModel.IsVaultConfigured, Mode=OneWay, Converter={StaticResource BoolToGlyphConverter}}"
+                                                  Foreground="{x:Bind ViewModel.IsVaultConfigured, Mode=OneWay, Converter={StaticResource BoolToBrushConverter}}"
+                                                  FontSize="18"
+                                                  VerticalAlignment="Center"/>
 
-                                        <!-- Title / URL -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind Title, Mode=OneWay}"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="14"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{x:Bind Url, Mode=OneWay}"
-                                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                                       FontSize="12"
-                                                       TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Obsidian Vault Destination" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                            <TextBlock Text="{x:Bind ViewModel.VaultFolderPath, Mode=OneWay}"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+
+                                        <HyperlinkButton Grid.Column="2" Content="Configure" Command="{x:Bind ViewModel.NavigateToSettingsCommand}" VerticalAlignment="Center" FontSize="12"/>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- 2. Ollama Local LLM -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <FontIcon Grid.Column="0"
+                                                  Glyph="{x:Bind ViewModel.IsOllamaReady, Mode=OneWay, Converter={StaticResource BoolToGlyphConverter}}"
+                                                  Foreground="{x:Bind ViewModel.IsOllamaReady, Mode=OneWay, Converter={StaticResource BoolToBrushConverter}}"
+                                                  FontSize="18"
+                                                  VerticalAlignment="Center"/>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Local AI Engine (Ollama)" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                            <TextBlock Text="{x:Bind ViewModel.OllamaStatusText, Mode=OneWay}"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Content="Refresh" Command="{x:Bind ViewModel.RefreshOllamaModelsCommand}" Height="30" CornerRadius="4" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- 3. Whisper Speech-to-Text -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <FontIcon Grid.Column="0"
+                                                  Glyph="{x:Bind ViewModel.IsWhisperReady, Mode=OneWay, Converter={StaticResource BoolToGlyphConverter}}"
+                                                  Foreground="{x:Bind ViewModel.IsWhisperReady, Mode=OneWay, Converter={StaticResource BoolToBrushConverter}}"
+                                                  FontSize="18"
+                                                  VerticalAlignment="Center"/>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Speech-to-Text (whisper.cpp)" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                            <TextBlock Text="{x:Bind ViewModel.HealthReport.Whisper.Details, Mode=OneWay}"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+
+                                        <HyperlinkButton Grid.Column="2" Content="Manage" Command="{x:Bind ViewModel.NavigateToSettingsCommand}" VerticalAlignment="Center" FontSize="12"/>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- 4. Windows OCR -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <FontIcon Grid.Column="0"
+                                                  Glyph="{x:Bind ViewModel.IsOcrReady, Mode=OneWay, Converter={StaticResource BoolToGlyphConverter}}"
+                                                  Foreground="{x:Bind ViewModel.IsOcrReady, Mode=OneWay, Converter={StaticResource BoolToBrushConverter}}"
+                                                  FontSize="18"
+                                                  VerticalAlignment="Center"/>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Windows OCR (Native WinRT)" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                            <TextBlock Text="{x:Bind ViewModel.HealthReport.WindowsOcr.Details, Mode=OneWay}"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Content="OCR Settings" Command="{x:Bind ViewModel.OpenOcrSettingsCommand}" Height="30" CornerRadius="4" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Onboarding Action Buttons -->
+                            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,8,0,0">
+                                <Button Content="Start Distilling"
+                                        Command="{x:Bind ViewModel.CompleteOnboardingCommand}"
+                                        Style="{ThemeResource AccentButtonStyle}"
+                                        Height="36"
+                                        Padding="20,0"
+                                        CornerRadius="4"/>
+                                <Button Content="Configure Settings"
+                                        Command="{x:Bind ViewModel.NavigateToSettingsCommand}"
+                                        Height="36"
+                                        Padding="16,0"
+                                        CornerRadius="4"/>
+                                <Button Content="Refresh Diagnostics"
+                                        Command="{x:Bind ViewModel.RefreshHealthReportCommand}"
+                                        Height="36"
+                                        Padding="16,0"
+                                        CornerRadius="4"/>
+                            </StackPanel>
+
+                        </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ======================================================== -->
+                <!-- DESTINATION 3: SETTINGS VIEW (Fluent 2 Windows 11 App Layout) -->
+                <!-- ======================================================== -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{x:Bind ViewModel.IsSettingsViewActive, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Spacing="24" MaxWidth="860" HorizontalAlignment="Left" Padding="24,24,24,32">
+
+                        <!-- Page Header -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Settings &amp; Diagnostics" Style="{ThemeResource TitleLargeTextBlockStyle}" />
+                            <TextBlock Text="Manage Obsidian vault destination, local AI models, Whisper speech parameters, and binary tools."
+                                       Style="{ThemeResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+
+                        <!-- SECTION 1: GENERAL & OBSIDIAN -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="General" Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                            <!-- Obsidian Vault Destination Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16,12">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE8B7;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Obsidian Vault Destination" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="Directory where distilled Markdown notes are written." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Grid Grid.Column="2" ColumnSpacing="8" VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{x:Bind ViewModel.VaultFolderPath, Mode=TwoWay}"
+                                                 PlaceholderText="e.g. C:\Users\YourName\Documents\MyVault"
+                                                 Height="32"
+                                                 CornerRadius="4"
+                                                 Width="260"
+                                                 FontSize="12"/>
+                                        <Button Grid.Column="1"
+                                                Content="Browse"
+                                                Click="BrowseVaultFolder_Click"
+                                                Height="32"
+                                                CornerRadius="4"
+                                                Padding="12,0"
+                                                FontSize="12"/>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <!-- Auto-Open in Obsidian Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16,12">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE8A7;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Auto-Open in Obsidian" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="Automatically launch newly created notes using the obsidian:// URI protocol." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="2" IsOn="{x:Bind ViewModel.AutoOpenInObsidian, Mode=TwoWay}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Append Raw Content Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16,12">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE8C4;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Append Raw Extracted Content" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="Include raw OCR slide text and full Whisper speech transcript at the bottom of the note." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="2" IsOn="{x:Bind ViewModel.AppendRawContentToNote, Mode=TwoWay}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Application Theme Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16,12">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE771;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Application Theme" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="Choose your preferred color theme for Distill and its window chrome." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="2"
+                                              SelectedValue="{x:Bind ViewModel.SelectedTheme, Mode=TwoWay}"
+                                              SelectedValuePath="Tag"
+                                              Height="32"
+                                              CornerRadius="4"
+                                              Width="200"
+                                              VerticalAlignment="Center">
+                                        <ComboBoxItem Content="Follow System (Default)" Tag="Default" />
+                                        <ComboBoxItem Content="Dark Mode (Pure Black)" Tag="Dark" />
+                                        <ComboBoxItem Content="Light Mode (Clean White)" Tag="Light" />
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- SECTION 2: AI & SPEECH SYNTHESIS -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="AI &amp; Speech Synthesis" Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                            <!-- Ollama Expander -->
+                            <Expander HorizontalAlignment="Stretch"
+                                      CornerRadius="8"
+                                      IsExpanded="True">
+                                <Expander.Header>
+                                    <Grid ColumnSpacing="12" Padding="4,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0" Glyph="&#xE945;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Local AI Engine (Ollama)" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Local LLM endpoint and model selection for note synthesis." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Expander.Header>
+                                <StackPanel Spacing="8" Padding="12">
+                                    <!-- Endpoint -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Ollama Server Endpoint" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Local HTTP service address (default: http://localhost:11434)." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Grid Grid.Column="1" ColumnSpacing="8" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" Text="{x:Bind ViewModel.OllamaEndpoint, Mode=TwoWay}" PlaceholderText="http://localhost:11434" Height="32" CornerRadius="4" Width="200" FontSize="12"/>
+                                            <Button Grid.Column="1" Content="Refresh" Command="{x:Bind ViewModel.RefreshOllamaModelsCommand}" Height="32" CornerRadius="4" Padding="12,0" FontSize="12"/>
+                                        </Grid>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- Model Select -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Selected LLM Model" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Active model used to denoise, summarize, and structure notes." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{x:Bind ViewModel.InstalledOllamaModels, Mode=OneWay}"
+                                                  SelectedItem="{x:Bind ViewModel.OllamaModelName, Mode=TwoWay}"
+                                                  PlaceholderText="Select Ollama model..."
+                                                  Height="32"
+                                                  CornerRadius="4"
+                                                  Width="220"
+                                                  FontSize="12"
+                                                  VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Expander>
+
+                            <!-- Whisper Expander -->
+                            <Expander HorizontalAlignment="Stretch"
+                                      CornerRadius="8"
+                                      IsExpanded="True">
+                                <Expander.Header>
+                                    <Grid ColumnSpacing="12" Padding="4,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0" Glyph="&#xE720;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Speech-to-Text (whisper.cpp)" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Local speech transcription engine and model parameters." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Expander.Header>
+                                <StackPanel Spacing="8" Padding="12">
+                                    <!-- Model Path -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Active Whisper Model File" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Path to ggml model binary (e.g. models/ggml-base.en.bin)." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Grid Grid.Column="1" ColumnSpacing="8" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" Text="{x:Bind ViewModel.WhisperModelPath, Mode=TwoWay}" PlaceholderText="models/ggml-base.en.bin" Height="32" CornerRadius="4" Width="200" FontSize="12"/>
+                                            <Button Grid.Column="1" Content="Browse" Click="BrowseWhisperModel_Click" Height="32" CornerRadius="4" Padding="12,0" FontSize="12"/>
+                                        </Grid>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- Download Preset Models -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Download Voice Models" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Download pre-configured GGML Whisper models to tools/models." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <Button Content="Base (148 MB)" Command="{x:Bind ViewModel.DownloadWhisperModelCommand}" CommandParameter="ggml-base.en.bin" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                            <Button Content="Small (488 MB)" Command="{x:Bind ViewModel.DownloadWhisperModelCommand}" CommandParameter="ggml-small.en.bin" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                            <Button Content="Tiny (77 MB)" Command="{x:Bind ViewModel.DownloadWhisperModelCommand}" CommandParameter="ggml-tiny.en.bin" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
                                         </StackPanel>
                                     </Grid>
 
-                                    <!-- Status Message & Progress -->
-                                    <StackPanel Spacing="6">
-                                        <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                   FontSize="12"/>
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
 
-                                        <ProgressBar Value="{x:Bind ProgressPercent, Mode=OneWay}"
-                                                     IsIndeterminate="{x:Bind IsActive, Mode=OneWay}"
-                                                     Visibility="{x:Bind IsDone, Mode=OneWay, Converter={StaticResource BoolToVisConverter}, ConverterParameter=invert}"
-                                                     Height="4"
-                                                     CornerRadius="2"/>
-                                    </StackPanel>
+                                    <!-- CPU Thread Count -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="CPU Thread Count" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Number of worker threads allocated for speech transcription." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.WhisperThreadCount, Mode=TwoWay}" Height="32" CornerRadius="4" Width="80" FontSize="12" VerticalAlignment="Center"/>
+                                    </Grid>
 
-                                    <!-- Error Callout if Failed -->
-                                    <InfoBar IsOpen="{x:Bind IsFailed, Mode=OneWay}"
-                                             Severity="Error"
-                                             Title="Processing Error"
-                                             Message="{x:Bind ErrorMessage, Mode=OneWay}"
-                                             IsClosable="False"/>
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
 
-                                    <!-- Actions when Done -->
-                                    <StackPanel Orientation="Horizontal"
-                                                Spacing="10"
-                                                Visibility="{x:Bind IsDone, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                                        <Button Content="📝 Open in Obsidian"
-                                                Style="{StaticResource AccentButtonStyle}"
-                                                Command="{x:Bind OpenInObsidianCommand}"
-                                                Padding="14,6"/>
-
-                                        <Button Content="📁 View File"
-                                                Command="{x:Bind OpenFileCommand}"
-                                                Padding="14,6"/>
-                                    </StackPanel>
+                                    <!-- Language Code -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Language Hint" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Language code hint for Whisper (e.g. 'en', 'auto')." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.WhisperLanguage, Mode=TwoWay}" Height="32" CornerRadius="4" Width="80" FontSize="12" VerticalAlignment="Center"/>
+                                    </Grid>
                                 </StackPanel>
+                            </Expander>
+                        </StackPanel>
+
+                        <!-- SECTION 3: PIPELINE & PERFORMANCE -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Pipeline &amp; Performance" Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                            <!-- Max Concurrent Jobs Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16,12">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE9D9;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Max Concurrent Ingestion Jobs" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="Maximum number of simultaneous extraction pipelines that can run in parallel." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="2" Text="{x:Bind ViewModel.MaxConcurrentJobs, Mode=TwoWay}" Height="32" CornerRadius="4" Width="80" FontSize="12" VerticalAlignment="Center"/>
+                                </Grid>
                             </Border>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Grid>
 
-            <!-- 2. ENHANCED SETTINGS VIEW -->
-            <ScrollViewer x:Name="SettingsViewPanel" Visibility="Collapsed">
-                <StackPanel Spacing="24" MaxWidth="820" HorizontalAlignment="Left" Padding="0,0,0,40">
-                    
-                    <!-- Header -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Settings &amp; Diagnostics" FontSize="22" FontWeight="SemiBold"/>
-                        <TextBlock Text="Manage local AI engines, speech transcriber models, Obsidian vault, and pipeline preferences."
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13"/>
-                    </StackPanel>
-
-                    <!-- Saved Notification -->
-                    <InfoBar IsOpen="{x:Bind ViewModel.IsSettingsSavedVisible, Mode=OneWay}"
-                             Severity="Success"
-                             Title="Settings Saved"
-                             Message="Configuration updated successfully and saved to appsettings.json."
-                             IsClosable="True"/>
-
-                    <!-- CARD 1: SYSTEM HEALTH & LOCAL TOOLS -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
-                        <StackPanel Spacing="16">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <TextBlock Text="System Health &amp; Local Tools" FontSize="15" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{x:Bind ViewModel.HealthStatusMessage, Mode=OneWay}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                    <Button Content="🔄 Refresh"
-                                            Command="{x:Bind ViewModel.RefreshHealthReportCommand}"
-                                            Padding="12,4"/>
-                                    <Button Content="⚡ Download / Update Tools"
-                                            Command="{x:Bind ViewModel.DownloadMissingToolsCommand}"
-                                            Padding="12,4"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Tool Status Rows -->
-                            <StackPanel Spacing="10">
-                                <!-- yt-dlp -->
-                                <Grid ColumnSpacing="12">
+                            <!-- Scene-Change Detection Sensitivity Card -->
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16,12">
+                                <Grid ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="yt-dlp (Downloader)" FontWeight="Medium" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.YtDlp.Details, Mode=OneWay}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <FontIcon Grid.Column="0" Glyph="&#xEB9F;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Scene-Change Detection Sensitivity" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="Sensitivity threshold for video frame sampling during Reel extraction (lower = more frames)." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="2"
+                                            Minimum="0.05"
+                                            Maximum="0.95"
+                                            StepFrequency="0.05"
+                                            Value="{x:Bind ViewModel.SceneChangeThreshold, Mode=TwoWay}"
+                                            IsThumbToolTipEnabled="True"
+                                            Width="180"
+                                            VerticalAlignment="Center"/>
                                 </Grid>
-
-                                <!-- ffmpeg -->
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="ffmpeg (Audio &amp; Frames)" FontWeight="Medium" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.Ffmpeg.Details, Mode=OneWay}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
-                                </Grid>
-
-                                <!-- whisper.cpp -->
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="whisper.cpp (Speech-to-Text)" FontWeight="Medium" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.Whisper.Details, Mode=OneWay}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
-                                </Grid>
-
-                                <!-- Windows Native OCR -->
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Windows OCR Engine" FontWeight="Medium" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.HealthReport.WindowsOcr.Details, Mode=OneWay}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
-                                </Grid>
-                            </StackPanel>
-
-                            <!-- Tool Update Progress -->
-                            <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.IsUpdatingTools, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                                <ProgressBar IsIndeterminate="True" Height="4"/>
-                                <TextBlock Text="{x:Bind ViewModel.ToolsUpdateStatus, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            </StackPanel>
+                            </Border>
                         </StackPanel>
-                    </Border>
 
-                    <!-- CARD 2: OBSIDIAN VAULT DESTINATION -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
-                        <StackPanel Spacing="14">
-                            <TextBlock Text="Obsidian Vault Destination" FontSize="15" FontWeight="SemiBold"/>
-                            <TextBlock Text="The directory or subfolder inside your Obsidian vault where distilled Markdown notes will be written."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
-                            
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+                        <!-- SECTION 4: SYSTEM TOOLS & DEPENDENCIES -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="System Tools &amp; Dependencies" Style="{ThemeResource SubtitleTextBlockStyle}" />
 
-                                <TextBox Grid.Column="0"
-                                         Header="Vault Folder Path"
-                                         PlaceholderText="e.g. C:\Users\Username\Documents\ObsidianVault\Instagram"
-                                         Text="{x:Bind ViewModel.VaultFolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <!-- External Tools Expander -->
+                            <Expander HorizontalAlignment="Stretch"
+                                      CornerRadius="8"
+                                      IsExpanded="True">
+                                <Expander.Header>
+                                    <Grid ColumnSpacing="12" Padding="4,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0" Glyph="&#xE713;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="External Tool Executables" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="Configure custom executable paths or use auto-detected system tools." Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="Check Health" Command="{x:Bind ViewModel.RefreshHealthReportCommand}" Height="32" CornerRadius="4" Padding="12,0" FontSize="12" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Expander.Header>
+                                <StackPanel Spacing="8" Padding="12">
+                                    <!-- yt-dlp -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="yt-dlp (Downloader)" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.HealthReport.YtDlp.Details, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Grid Grid.Column="1" ColumnSpacing="6" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" PlaceholderText="Auto (tools/yt-dlp.exe or PATH)" Text="{x:Bind ViewModel.YtDlpBinaryPath, Mode=TwoWay}" Height="32" CornerRadius="4" Width="180" FontSize="11"/>
+                                            <Button Grid.Column="1" Content="Browse" Click="BrowseYtDlp_Click" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                            <Button Grid.Column="2" Content="Download" Command="{x:Bind ViewModel.DownloadYtDlpCommand}" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                        </Grid>
+                                    </Grid>
 
-                                <Button Grid.Column="1"
-                                        Content="📁 Browse Folder..."
-                                        Click="BrowseVaultFolder_Click"
-                                        VerticalAlignment="Bottom"
-                                        Padding="16,6"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
 
-                    <!-- CARD 3: OLLAMA LOCAL LLM SYNTHESIS -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
-                        <StackPanel Spacing="14">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+                                    <!-- ffmpeg -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="ffmpeg (Media Demuxer)" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.HealthReport.Ffmpeg.Details, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Grid Grid.Column="1" ColumnSpacing="6" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" PlaceholderText="Auto (tools/ffmpeg.exe or PATH)" Text="{x:Bind ViewModel.FfmpegBinaryPath, Mode=TwoWay}" Height="32" CornerRadius="4" Width="180" FontSize="11"/>
+                                            <Button Grid.Column="1" Content="Browse" Click="BrowseFfmpeg_Click" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                            <Button Grid.Column="2" Content="Reinstall" Command="{x:Bind ViewModel.DownloadFfmpegCommand}" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                        </Grid>
+                                    </Grid>
 
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <TextBlock Text="Ollama Local LLM Synthesis" FontSize="15" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Local AI inference used to deduplicate visual OCR and audio transcripts into structured Obsidian notes."
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- whisper.cpp -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="whisper-cli (STT Runner)" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.HealthReport.Whisper.Details, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Grid Grid.Column="1" ColumnSpacing="6" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" PlaceholderText="Auto (tools/whisper-cli.exe or PATH)" Text="{x:Bind ViewModel.WhisperBinaryPath, Mode=TwoWay}" Height="32" CornerRadius="4" Width="180" FontSize="11"/>
+                                            <Button Grid.Column="1" Content="Browse" Click="BrowseWhisperBinary_Click" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                            <Button Grid.Column="2" Content="Download" Command="{x:Bind ViewModel.DownloadWhisperCommand}" Height="32" CornerRadius="4" Padding="10,0" FontSize="11"/>
+                                        </Grid>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+
+                                    <!-- Windows OCR -->
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="Windows OCR (Native WinRT)" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.HealthReport.WindowsOcr.Details, Mode=OneWay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Windows Language Settings" Command="{x:Bind ViewModel.OpenOcrSettingsCommand}" Height="32" CornerRadius="4" Padding="12,0" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
                                 </StackPanel>
-
-                                <!-- Live Connection Indicator -->
-                                <Border Grid.Column="1"
-                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="12"
-                                        Padding="10,4"
-                                        VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind ViewModel.OllamaStatusText, Mode=OneWay}"
-                                               FontSize="11"
-                                               FontWeight="SemiBold"/>
-                                </Border>
-                            </Grid>
-
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBox Grid.Column="0"
-                                         Header="Ollama Endpoint URL"
-                                         PlaceholderText="http://localhost:11434"
-                                         Text="{x:Bind ViewModel.OllamaEndpoint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                <Button Grid.Column="1"
-                                        Content="🔄 Refresh Models"
-                                        Command="{x:Bind ViewModel.RefreshOllamaModelsCommand}"
-                                        VerticalAlignment="Bottom"
-                                        Padding="16,6"/>
-                            </Grid>
-
-                            <ComboBox Header="Ollama Model Name"
-                                      PlaceholderText="Select or type model name (e.g. llama3.2:3b, qwen2.5:7b)"
-                                      IsEditable="True"
-                                      HorizontalAlignment="Stretch"
-                                      ItemsSource="{x:Bind ViewModel.InstalledOllamaModels, Mode=OneWay}"
-                                      Text="{x:Bind ViewModel.OllamaModelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Expander>
                         </StackPanel>
-                    </Border>
 
-                    <!-- CARD 4: WHISPER.CPP SPEECH-TO-TEXT -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
-                        <StackPanel Spacing="14">
-                            <TextBlock Text="Whisper.cpp Speech-to-Text" FontSize="15" FontWeight="SemiBold"/>
-                            <TextBlock Text="Local offline audio transcription for Instagram Reels using whisper.cpp."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
-
-                            <!-- Model Selector & Actions -->
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <ComboBox Grid.Column="0"
-                                          Header="Whisper Model Path / Preset"
-                                          PlaceholderText="models/ggml-base.en.bin"
-                                          IsEditable="True"
-                                          HorizontalAlignment="Stretch"
-                                          ItemsSource="{x:Bind ViewModel.PresetWhisperModels, Mode=OneWay}"
-                                          Text="{x:Bind ViewModel.WhisperModelPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                <Button Grid.Column="1"
-                                        Content="⬇ Download Model"
-                                        Command="{x:Bind ViewModel.DownloadWhisperModelCommand}"
-                                        VerticalAlignment="Bottom"
-                                        Padding="14,6"/>
-
-                                <Button Grid.Column="2"
-                                        Content="📁 Browse .bin"
-                                        Click="BrowseWhisperModel_Click"
-                                        VerticalAlignment="Bottom"
-                                        Padding="14,6"/>
-                            </Grid>
-
-                            <!-- Model Download Progress -->
-                            <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.IsDownloadingWhisperModel, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                                <ProgressBar Value="{x:Bind ViewModel.WhisperDownloadProgress, Mode=OneWay}" Height="6" CornerRadius="3"/>
-                                <TextBlock Text="{x:Bind ViewModel.WhisperDownloadStatus, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            </StackPanel>
-
+                        <!-- SECTION 5: SAVE SETTINGS FOOTER -->
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16"
+                                Margin="0,8,0,32">
                             <Grid ColumnSpacing="16">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
-                                <TextBox Grid.Column="0"
-                                         Header="CPU Threads"
-                                         PlaceholderText="4"
-                                         Text="{x:Bind ViewModel.WhisperThreadCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <InfoBar Grid.Column="0"
+                                         IsOpen="{x:Bind ViewModel.IsSettingsSavedVisible, Mode=OneWay}"
+                                         Severity="Success"
+                                         Message="Settings saved successfully!"
+                                         IsClosable="False" />
 
-                                <TextBox Grid.Column="1"
-                                         Header="Language Hint"
-                                         PlaceholderText="en (or auto)"
-                                         Text="{x:Bind ViewModel.WhisperLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1"
+                                        Content="Save Settings"
+                                        Command="{x:Bind ViewModel.SaveSettingsCommand}"
+                                        Style="{ThemeResource AccentButtonStyle}"
+                                        Height="36"
+                                        Padding="24,0"
+                                        CornerRadius="4"/>
                             </Grid>
-                        </StackPanel>
-                    </Border>
+                        </Border>
 
-                    <!-- CARD 5: PIPELINE & AUTOMATION PREFERENCES -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
-                        <StackPanel Spacing="16">
-                            <TextBlock Text="Pipeline &amp; Automation Preferences" FontSize="15" FontWeight="SemiBold"/>
-                            <TextBlock Text="Fine-tune background ingestion behavior, scene detection, and note formatting."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
-
-                            <!-- Auto-Open Toggle -->
-                            <ToggleSwitch Header="Auto-open note in Obsidian upon completion"
-                                          OffContent="Disabled"
-                                          OnContent="Enabled"
-                                          IsOn="{x:Bind ViewModel.AutoOpenInObsidian, Mode=TwoWay}"/>
-
-                            <!-- Append Raw Details Toggle -->
-                            <ToggleSwitch Header="Append raw transcript &amp; OCR text in note footer"
-                                          OffContent="Disabled"
-                                          OnContent="Enabled"
-                                          IsOn="{x:Bind ViewModel.AppendRawContentToNote, Mode=TwoWay}"/>
-
-                            <!-- Max Parallel Jobs -->
-                            <TextBox Header="Max Concurrent Ingestion Jobs"
-                                     PlaceholderText="2"
-                                     Text="{x:Bind ViewModel.MaxConcurrentJobs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                            <!-- Scene Detection Sensitivity Slider -->
-                            <StackPanel Spacing="4">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Scene-Change Detection Sensitivity" FontWeight="Medium" FontSize="13"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.SceneChangeThreshold, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
-                                </Grid>
-                                <Slider Minimum="0.1" Maximum="0.9" StepFrequency="0.05"
-                                        Value="{x:Bind ViewModel.SceneChangeThreshold, Mode=TwoWay}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Save Action Bar -->
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Content="💾 Save Settings"
-                                Style="{StaticResource AccentButtonStyle}"
-                                Command="{x:Bind ViewModel.SaveSettingsCommand}"
-                                Padding="28,9"/>
                     </StackPanel>
+                </ScrollViewer>
 
-                </StackPanel>
-            </ScrollViewer>
-
-        </Grid>
-    </NavigationView>
+            </Grid>
+        </NavigationView>
+    </Grid>
 </Page>
